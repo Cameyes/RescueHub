@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
@@ -19,11 +20,13 @@ import 'package:food_delivery_app/pages/location_selector.dart';
 import 'package:food_delivery_app/pages/map_screen.dart';
 import 'package:food_delivery_app/pages/medical_assistance_page.dart';
 import 'package:food_delivery_app/pages/notifications_page.dart';
+import 'package:food_delivery_app/pages/preparedness_page.dart';
 import 'package:food_delivery_app/pages/profile_page.dart';
 import 'package:food_delivery_app/pages/settings_page.dart';
 import 'package:food_delivery_app/pages/volunteer_page.dart';
 import 'package:food_delivery_app/service/database.dart';
 import 'package:food_delivery_app/service/language_provider.dart';
+import 'package:food_delivery_app/service/translation_service.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -67,6 +70,58 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
 
   int _selectedIndex = 0;
 
+  Future<Map<String, String>> translateSnapshotData(Map<String, dynamic> data, String targetLanguage) async {
+  final translationService = TranslationService();
+  Map<String, String> translatedData = {};
+
+  // Fields to translate
+  final fieldsToTranslate = [
+    'Name',
+    'Description',
+    'Address',
+    'Preference',
+    'Size',
+    'Type',
+    'Quantity',
+    'HouseName',
+    'Gender',
+    'ClothName',
+    'FoodName',
+    
+    // Add other fields that need translation
+  ];
+
+  for (var field in fieldsToTranslate) {
+    if (data[field] != null && data[field].toString().isNotEmpty) {
+      try {
+        String translated = await translationService.translateText(
+          data[field].toString(),
+          targetLanguage
+        );
+        translatedData[field] = translated;
+      } catch (e) {
+        print('Translation error for $field: $e');
+        translatedData[field] = data[field].toString();
+      }
+    }
+  }
+
+  return translatedData;
+}
+
+ Future<void> _checkExpiredFood() async {
+    try {
+      await DatabaseMethods().checkAndDeleteExpiredFood();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error checking expired food: $e')),
+        );
+      }
+    }
+ }
+  
+
   void navigateBottomBar(int index) {
     setState(() {
       _selectedIndex = index;
@@ -100,6 +155,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
     initializeUserProfileStream();
     getontheload(selectedLoc);
     _loadProfileImage();
+    _checkExpiredFood();
 
     userProfileStream?.listen((snapshot){
       if(snapshot.exists){
@@ -111,6 +167,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
       }
     });
   }
+
+  
 
   Future<void> _loadProfileImage() async{
     try{
@@ -176,7 +234,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
-        "Blood Donors":BloodDonorPage(userId: widget.userId, location: widget.selectedLoc),
+        "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Thrissur"),
+        "Preparedness":PreparednessScreen(location: "Thrissur"),
       },
       "Palakkad": {
         "Shelter": allShelterDetails(userId),
@@ -185,7 +244,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
-        "Blood Donors":BloodDonorPage(userId: widget.userId, location: widget.selectedLoc),
+        "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Palakkad"),
+        "Preparedness":PreparednessScreen(location: "Palakkad"),
       },
       "Eranakulam": {
         "Shelter": allShelterDetails(userId),
@@ -194,7 +254,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
-        "Blood Donors":BloodDonorPage(userId: widget.userId, location: widget.selectedLoc),
+        "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Eranakulam"),
+        "Preparedness":PreparednessScreen(location: "Eranakulam"),
       },
     };
   }
@@ -206,7 +267,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
      final languageProvider=Provider.of<LanguageProvider>(context);
     List<Widget> pages = [
       DefaultTabController(
-        length: 7,
+        length: 8,
         child: Scaffold(
          appBar: AppBar(
   toolbarHeight: 120,
@@ -350,7 +411,9 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
          SizedBox(
         width: 120,
         child:  Tab(text:languageProvider.translations['blood']??"Blood Donors")),
-
+        SizedBox(
+        width: 120,
+        child:  Tab(text:languageProvider.translations['preparedness']??"Preparedness")),
     ],
   ),
 ),
@@ -375,6 +438,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
                         const Center(child: Text("No  Medical Assistance data Available"),),
                     locationContent(widget.userId)[selectedLoc]?["Blood Donors"] ??
                         const Center(child: Text("No  Blood Donor data Available"),),
+                    locationContent(widget.userId)[selectedLoc]?["Preparedness"] ??
+                        const Center(child: Text("No  Preparedness data Available"),),
 
                   ],
                 ),
@@ -397,8 +462,13 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
 
 
 
- Widget allShelterDetails(String userId) {
+Widget allShelterDetails(String userId) {
    final themeProvider = Provider.of<ThemeProvider>(context);
+   final languageProvider = Provider.of<LanguageProvider>(context);
+   final targetLanguage = languageProvider.currentLocale.languageCode;
+   final bool isEnglish = targetLanguage == 'en';
+   final double fontSize = isEnglish ? 18.0 : 17.0;
+   
   return Stack(
     children: [
       StreamBuilder(
@@ -409,427 +479,440 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
                   itemCount: snapshot.data.docs.length,
                   itemBuilder: (context, index) {
                     DocumentSnapshot ds = snapshot.data.docs[index];
-                    return Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child:  Slidable(
-                        endActionPane: ds["UserId"]==userId 
-                        ?ActionPane(
-                          motion: const ScrollMotion(),
-                          extentRatio: 0.25,
-                          children: [
-                            CustomSlidableAction(
-                              backgroundColor:themeProvider.isDarkMode? Colors.grey.shade400:Colors.red,
-                              onPressed: (context) async{
-                                 final shelterId = ds.id; // Get the document ID from the snapshot
-                                final confirmation = await showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: const Text("Confirm Deletion"),
-                                      content: const Text("Are you sure you want to delete this shelter?"),
-                                      actions: [
-                                        TextButton(
-                                          child: const Text("Cancel"),
-                                          onPressed: () => Navigator.of(context).pop(false),
-                                        ),
-                                        TextButton(
-                                          child: const Text("Delete"),
-                                          onPressed: () => Navigator.of(context).pop(true),
-                                        ),
-                                      ],
+                    return FutureBuilder<Map<String, String>>(
+                      future: translateSnapshotData(
+                          ds.data() as Map<String, dynamic>,
+                          targetLanguage
+                      ),
+                      builder: (context, translationSnapshot){
+                         if (!translationSnapshot.hasData) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          final translatedData = translationSnapshot.data!;
+                        return Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child:  Slidable(
+                            endActionPane: ds["UserId"]==userId 
+                            ?ActionPane(
+                              motion: const ScrollMotion(),
+                              extentRatio: 0.25,
+                              children: [
+                                CustomSlidableAction(
+                                  backgroundColor:themeProvider.isDarkMode? Colors.grey.shade400:Colors.red,
+                                  onPressed: (context) async{
+                                     final shelterId = ds.id;
+                                    final confirmation = await showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text("Confirm Deletion"),
+                                          content: const Text("Are you sure you want to delete this shelter?"),
+                                          actions: [
+                                            TextButton(
+                                              child: const Text("Cancel"),
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                            ),
+                                            TextButton(
+                                              child: const Text("Delete"),
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     );
+                        
+                                    if (confirmation == true) {
+                                      try {
+                                        await DatabaseMethods().deleteshelterDetail(shelterId);
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("Shelter deleted successfully")),
+                                        );
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text("Error deleting shelter: $e")),
+                                        );
+                                      }
+                                    }
                                   },
-                                );
-
-                                if (confirmation == true) {
-                                  try {
-                                    await DatabaseMethods().deleteshelterDetail(shelterId);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Shelter deleted successfully")),
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text("Error deleting shelter: $e")),
-                                    );
-                                  }
-                                }
-                              },
-                              child:  Icon(
-                                Icons.delete,
-                                color:themeProvider.isDarkMode?Colors.black: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                          ],
-                        )
-                        :null,
-                        child: GestureDetector(
-                          child: Material(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color:themeProvider.isDarkMode?Colors.grey[600] : Color(
-                                      0xFFDEEDFC),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              width: double.infinity,
-                              height: 200,
-                              child: Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: Container(
-                                      width: 100,
-                                      height: 100,
-                                      decoration: BoxDecoration(
-                                        color:  Colors.grey,
-                                        border: Border.all(color: Colors.white),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: ds["Images"].isNotEmpty
-                                            ? (ds["Images"][0].startsWith('http') 
-                                                ? Image.network(
-                                                    ds["Images"][0],
-                                                    fit: BoxFit.fill,
-                                                    width: 100,
-                                                    height: 100,
-                                                  )
+                                  child:  Icon(
+                                    Icons.delete,
+                                    color:themeProvider.isDarkMode?Colors.black: Colors.white,
+                                    size: 30,
+                                  ),
+                                ),
+                              ],
+                            )
+                            :null,
+                            child: GestureDetector(
+                              child: Material(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color:themeProvider.isDarkMode?Colors.grey[600] : Color(0xFFDEEDFC),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  width: double.infinity,
+                                  height: 200,
+                                  child: Row(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Container(
+                                          width: 100,
+                                          height: 100,
+                                          decoration: BoxDecoration(
+                                            color:  Colors.grey,
+                                            border: Border.all(color: Colors.white),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: ds["Images"].isNotEmpty
+                                                ? (ds["Images"][0].startsWith('http') 
+                                                    ? Image.network(
+                                                        ds["Images"][0],
+                                                        fit: BoxFit.fill,
+                                                        width: 100,
+                                                        height: 100,
+                                                      )
+                                                    : const Icon(
+                                                        Icons.image,
+                                                        color: Colors.white,
+                                                        size: 50,
+                                                      ))
                                                 : const Icon(
                                                     Icons.image,
                                                     color: Colors.white,
                                                     size: 50,
-                                                  ))
-                                            : const Icon(
-                                                Icons.image,
-                                                color: Colors.white,
-                                                size: 50,
-                                              ),
+                                                  ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 20.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 10),
-                                        Row(
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 20.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              "${ds["Name"]}",
-                                              style: TextStyle(
-                                                color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              "${ds["Age"]}",
-                                              style: TextStyle(
-                                                color:themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 15),
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: "${ds["Gender"]}" == "Male"
-                                                    ? Colors.blue
-                                                    : const Color.fromARGB(
-                                                        255, 236, 52, 113),
-                                                borderRadius:
-                                                    BorderRadius.circular(15),
-                                                border: Border.all(
-                                                    color: Colors.white),
-                                              ),
-                                              width: 70,
-                                              child: Center(
-                                                child: Text(
-                                                  "${ds["Gender"]}",
-                                                  style:  TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 18,
+                                            const SizedBox(height: 10),
+                                            Row(
+                                              children: [
+                                                 Text(
+                                                    translatedData['Name'] ?? ds['Name'],
+                                                    style: TextStyle(
+                                                      color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                                                      fontSize: fontSize,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                const SizedBox(width: 10),
+                                                Text(
+                                                  "${ds["Age"]}",
+                                                  style: TextStyle(
+                                                    color:themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                    fontSize: fontSize,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
-                                              ),
+                                                const SizedBox(width: 15),
+                                                Container(
+                                                  decoration: BoxDecoration(
+                                                    color: "${ds["Gender"]}" == "Male"
+                                                        ? Colors.blue
+                                                        : const Color.fromARGB(255, 236, 52, 113),
+                                                    borderRadius: BorderRadius.circular(15),
+                                                    border: Border.all(color: Colors.white),
+                                                  ),
+                                                  width: 70,
+                                                  child: Center(
+                                                    child: Text(
+                                                       translatedData['Gender'] ?? ds['Gender'],
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: targetLanguage=='ml'?14.0:17.0,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          "${ds["HouseName"]}",
-                                          style:  TextStyle(
-                                            color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                            fontSize: 18.0,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        
-                                        Row(
-                                          children: [
+                                            const SizedBox(height: 5),
                                             Text(
-                                              "Fit for: ${ds["Size"]}",
-                                              style:  TextStyle(
+                                              translatedData['HouseName'] ?? ds['HouseName'],
+                                              style: TextStyle(
                                                 color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                fontSize: 18.0,
+                                                fontSize: fontSize,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            const SizedBox(width: 10,),
-                                            FutureBuilder(
-                                              future: FirebaseFirestore.instance
-                                              .collection('shelter')
-                                              .doc(ds.id)
-                                              .collection('reviews')
-                                              .get(), 
-                                              builder: (
-                                                context,
-                                                AsyncSnapshot<QuerySnapshot>
-                                                reviewSnapshot){
-                                                  if(reviewSnapshot.connectionState==ConnectionState.waiting){
-                                                    return const Text(
-                                                      "Loading...",
-                                                      style: TextStyle(
-                                                        color: Colors.black,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );
-                                                  }
-
-                                                  if(reviewSnapshot.hasData){
-                                                    final reviews=reviewSnapshot.data!.docs;
-                                                    if(reviews.isEmpty){
-                                                      return Text(
-                                                        "(No Reviews)",
-                                                        style: TextStyle(
-                                                          color:themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                          fontSize: 16,
-                                                        ),
-                                                      );
-                                                    }
-                                                    
-                                                    
-                                                  double avgRating = reviews
-                                                          .map((doc) =>
-                                                              doc['rating'] as int)
-                                                          .reduce((a, b) => a + b) /
-                                                      reviews.length;
-
-                                                      return Row(
-                                                        children: [
-                                                          Text(
-                                                            avgRating.toStringAsFixed(1),
-                                                            style:  TextStyle(
-                                                             color:themeProvider.isDarkMode?Colors.white: Colors.orange,
-                                                             fontSize: 16,
-                                                             fontWeight: FontWeight.bold,                  
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 5,),
-                                                          Row(
-                                                            children: List.generate(5, (index){
-                                                              if(index <avgRating.floor())
-                                                              {
-                                                                return  Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: 16,);                                                        
-                                                              }
-                                                              else if (index < avgRating && avgRating - index >= 0.5) {
-                                                                return  Icon(Icons.star_half, color: themeProvider.isDarkMode?Colors.white: Colors.orange, size: 16);
-                                                              } 
-                                                              else {
-                                                                  return const Icon(Icons.star_border, color: Colors.grey, size: 16);
-                                                                }
-                                                            })
-                                                          ),
-                                                          Text("(${reviews.length})",
+                                            
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  "Fit for: ${ds["Size"]}",
+                                                  style: TextStyle(
+                                                    color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                    fontSize: fontSize,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10,),
+                                                FutureBuilder(
+                                                  future: FirebaseFirestore.instance
+                                                  .collection('shelter')
+                                                  .doc(ds.id)
+                                                  .collection('reviews')
+                                                  .get(), 
+                                                  builder: (
+                                                    context,
+                                                    AsyncSnapshot<QuerySnapshot>
+                                                    reviewSnapshot){
+                                                      if(reviewSnapshot.connectionState==ConnectionState.waiting){
+                                                        return Text(
+                                                          "Loading...",
                                                           style: TextStyle(
-                                                            color:themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                            fontSize: 16,
-                                                          ),),
-                                                        ],             
-                                                      );
-
-                                                  }
-
-                                                    return Text(
-                                                      "(No Reviews)",
-                                                      style: TextStyle(
-                                                        color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );       
-                                                })
-                                          ],
-                                        ),
-                                        Text(
-                                          "Preference : ${ds["Preference"]}",
-                                          style: TextStyle(
-                                            color:themeProvider.isDarkMode?Colors.white: Colors.black,
-                                            fontSize: 18.0,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 5),
-                                        SizedBox(
-                                          height: 40,
-                                          width: 40,
-                                          child: FloatingActionButton(
-                                            backgroundColor: themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),
-                                            elevation: 5,
-                                            child: const Icon(
-                                              Icons.directions,
-                                              size: 30,
-                                              color: Colors.white,
-                                            ),
-                                            onPressed: () async {
-                                                      try {
-                                                        // Fetch shelter coordinates
-                                                        String addressString = ds['Address'];
-                                                        List<String> latLng = addressString.split(',');
-                                                        double shelterLat = double.parse(latLng[0].trim());
-                                                        double shelterLng = double.parse(latLng[1].trim());
-
-                                                        // Fetch user coordinates from Profile collection
-                                                        DocumentSnapshot userProfile = await FirebaseFirestore.instance
-                                                            .collection("Profile")
-                                                            .doc(userId)
-                                                            .get();
-                                                        String locationString = userProfile["location"];
-                                                        List<String> userlatLng = locationString.split(',');
-                                                        double locationLat = double.parse(userlatLng[0].trim());
-                                                        double locationLng = double.parse(userlatLng[1].trim());
-
-                                                        // Get the real distance using Google Directions API
-                                                        String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc'; // Replace with your actual API key
-                                                        String url = 'https://maps.googleapis.com/maps/api/directions/json'
-                                                            '?origin=$locationLat,$locationLng'
-                                                            '&destination=$shelterLat,$shelterLng'
-                                                            '&mode=driving' // Specify travel mode
-                                                            '&key=$apiKey';
-
-                                                        final response = await http.get(Uri.parse(url));
-                                                        if (response.statusCode == 200) {
-                                                          Map<String, dynamic> data = json.decode(response.body);
-                                                          
-                                                          if (data['status'] != 'OK') {
-                                                            throw Exception('Directions API error: ${data['status']}');
-                                                          }
-
-                                                          if (data['routes'].isEmpty) {
-                                                            throw Exception('No route found');
-                                                          }
-
-                                                          // Get the actual road distance from the first route
-                                                          var route = data['routes'][0]['legs'][0];
-                                                          var distanceInMeters = route['distance']['value'];
-                                                          var distanceText = route['distance']['text'];
-                                                          var durationText = route['duration']['text'];
-                                                          var distanceInKm = distanceInMeters / 1000.0;
-
-                                                          // Get the polyline points for the route
-                                                          String encodedPoints = data['routes'][0]['overview_polyline']['points'];
-                                                          
-                                                          // Navigate to the map screen with all route information
-                                                          Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                              builder: (context) => MapScreen(
-                                                                shelterLat: shelterLat,
-                                                                shelterLng: shelterLng,
-                                                                userLat: locationLat,
-                                                                userLng: locationLng,
-                                                                distance: distanceInKm,
-                                                                distanceText: distanceText,
-                                                                durationText: durationText,
-                                                                encodedPolyline: encodedPoints,
-                                                                shelterId: ds["Id"],
-                                                              ),
-                                                            ),
-                                                          );
-                                                        } else {
-                                                          throw Exception('Failed to fetch directions: ${response.statusCode}');
-                                                        }
-                                                      } catch (e) {
-                                                        print('Error: $e');
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
+                                                            color: Colors.black,
+                                                            fontSize: fontSize - 2,
+                                                          ),
                                                         );
                                                       }
-                                                    },
-                                          ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        
-                                        const SizedBox(height: 15),
-                                        GestureDetector(
-                                          child: ds['UserId'] == userId
-                                              ? Container(
-                                                  height: 40,
-                                                  width: 40,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
+                        
+                                                      if(reviewSnapshot.hasData){
+                                                        final reviews=reviewSnapshot.data!.docs;
+                                                        if(reviews.isEmpty){
+                                                          return Text(
+                                                            "(No Reviews)",
+                                                            style: TextStyle(
+                                                              color:themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                              fontSize: fontSize - 2,
+                                                            ),
+                                                          );
+                                                        }
+                                                        
+                                                        double avgRating = reviews
+                                                              .map((doc) =>
+                                                                  doc['rating'] as int)
+                                                              .reduce((a, b) => a + b) /
+                                                          reviews.length;
+                        
+                                                          return Row(
+                                                            children: [
+                                                              Text(
+                                                                avgRating.toStringAsFixed(1),
+                                                                style: TextStyle(
+                                                                 color:themeProvider.isDarkMode?Colors.white: Colors.orange,
+                                                                 fontSize: fontSize - 2,
+                                                                 fontWeight: FontWeight.bold,                  
+                                                                ),
+                                                              ),
+                                                              const SizedBox(width: 5,),
+                                                              Row(
+                                                                children: List.generate(5, (index){
+                                                                  if(index <avgRating.floor())
+                                                                  {
+                                                                    return Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: fontSize - 2,);                                                        
+                                                                  }
+                                                                  else if (index < avgRating && avgRating - index >= 0.5) {
+                                                                    return Icon(Icons.star_half, color: themeProvider.isDarkMode?Colors.white: Colors.orange, size: fontSize - 2);
+                                                                  } 
+                                                                  else {
+                                                                      return Icon(Icons.star_border, color: Colors.grey, size: fontSize - 2);
+                                                                    }
+                                                                })
+                                                              ),
+                                                              Text(
+                                                                "(${reviews.length})",
+                                                                style: TextStyle(
+                                                                  color:themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                                  fontSize: fontSize - 2,
+                                                                ),
+                                                              ),
+                                                            ],             
+                                                          );
+                                                      }
+                        
+                                                        return Text(
+                                                          "(No Reviews)",
+                                                          style: TextStyle(
+                                                            color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                            fontSize: fontSize - 2,
+                                                          ),
+                                                        );       
+                                                    })
+                                              ],
+                                            ),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                   languageProvider.translations['preference']??"Preference "+": ${ds["Size"]}",
+                                                  style: TextStyle(
+                                                    color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                    fontSize: fontSize,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
-                                                  child: const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.black,
-                                                  ),
-                                                )
-                                              : const SizedBox.shrink(),
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => EditDetails(
-                                                  shelterData: ds,
-                                                  userId: userId,
                                                 ),
-                                              ),
-                                            );
-                                          },
+                                                const SizedBox(width:12),
+                                                Text(
+                                                  translatedData['Preference'] ?? ds['Preference'],
+                                                  style: TextStyle(
+                                                    color:themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                    fontSize: fontSize,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const Spacer(),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(height: 5),
+                                            SizedBox(
+                                              height: 40,
+                                              width: 40,
+                                              child: FloatingActionButton(
+                                                backgroundColor: themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),
+                                                elevation: 5,
+                                                child: const Icon(
+                                                  Icons.directions,
+                                                  size: 30,
+                                                  color: Colors.white,
+                                                ),
+                                                onPressed: () async {
+                                                          try {
+                                                            String addressString = ds['Address'];
+                                                            List<String> latLng = addressString.split(',');
+                                                            double shelterLat = double.parse(latLng[0].trim());
+                                                            double shelterLng = double.parse(latLng[1].trim());
+                        
+                                                            DocumentSnapshot userProfile = await FirebaseFirestore.instance
+                                                                .collection("Profile")
+                                                                .doc(userId)
+                                                                .get();
+                                                            String locationString = userProfile["location"];
+                                                            List<String> userlatLng = locationString.split(',');
+                                                            double locationLat = double.parse(userlatLng[0].trim());
+                                                            double locationLng = double.parse(userlatLng[1].trim());
+                        
+                                                            String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+                                                            String url = 'https://maps.googleapis.com/maps/api/directions/json'
+                                                                '?origin=$locationLat,$locationLng'
+                                                                '&destination=$shelterLat,$shelterLng'
+                                                                '&mode=driving'
+                                                                '&key=$apiKey';
+                        
+                                                            final response = await http.get(Uri.parse(url));
+                                                            if (response.statusCode == 200) {
+                                                              Map<String, dynamic> data = json.decode(response.body);
+                                                              
+                                                              if (data['status'] != 'OK') {
+                                                                throw Exception('Directions API error: ${data['status']}');
+                                                              }
+                        
+                                                              if (data['routes'].isEmpty) {
+                                                                throw Exception('No route found');
+                                                              }
+                        
+                                                              var route = data['routes'][0]['legs'][0];
+                                                              var distanceInMeters = route['distance']['value'];
+                                                              var distanceText = route['distance']['text'];
+                                                              var durationText = route['duration']['text'];
+                                                              var distanceInKm = distanceInMeters / 1000.0;
+                        
+                                                              String encodedPoints = data['routes'][0]['overview_polyline']['points'];
+                                                              
+                                                              Navigator.push(
+                                                                context,
+                                                                MaterialPageRoute(
+                                                                  builder: (context) => MapScreen(
+                                                                    shelterLat: shelterLat,
+                                                                    shelterLng: shelterLng,
+                                                                    userLat: locationLat,
+                                                                    userLng: locationLng,
+                                                                    distance: distanceInKm,
+                                                                    distanceText: distanceText,
+                                                                    durationText: durationText,
+                                                                    encodedPolyline: encodedPoints,
+                                                                    shelterId: ds["Id"],
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            } else {
+                                                              throw Exception('Failed to fetch directions: ${response.statusCode}');
+                                                            }
+                                                          } catch (e) {
+                                                            print('Error: $e');
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
+                                                            );
+                                                          }
+                                                        },
+                                              ),
+                                            ),
+                                            const SizedBox(height: 20),
+                                            
+                                            const SizedBox(height: 15),
+                                            GestureDetector(
+                                              child: ds['UserId'] == userId
+                                                  ? Container(
+                                                      height: 40,
+                                                      width: 40,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius.circular(12),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.edit,
+                                                        color: Colors.black,
+                                                      ),
+                                                    )
+                                                  : const SizedBox.shrink(),
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) => EditDetails(
+                                                      shelterData: ds,
+                                                      userId: userId,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          onTap: () async{
-                            final distance =await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PopScreen(
-                                  shelterData: ds,
                                 ),
                               ),
-                            );
-                              if (distance != null) {
-                                  // Sort the shelters based on the returned distance
-                                   await FirebaseFirestore.instance
-                                    .collection('shelter')
-                                    .doc(ds.id)
-                                    .update({'distance': distance});
-                              setState(() {
-                                // Trigger a refresh to apply sorting
-                            shelterStream = DatabaseMethods().getshelterDetails(location: selectedLoc) as Stream?;
-                              });
-                            }
-                          },
-                        ),
-                      ),
+                              onTap: () async{
+                                final distance = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PopScreen(
+                                      shelterData: ds,
+                                    ),
+                                  ),
+                                );
+                                  if (distance != null) {
+                                       await FirebaseFirestore.instance
+                                        .collection('shelter')
+                                        .doc(ds.id)
+                                        .update({'distance': distance});
+                                  setState(() {
+                                shelterStream = DatabaseMethods().getshelterDetails(location: selectedLoc) as Stream?;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                    },
                     );
                   },
                 )

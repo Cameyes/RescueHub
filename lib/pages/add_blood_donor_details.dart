@@ -66,43 +66,43 @@ class _AddBloodDonorDetailsState extends State<AddBloodDonorDetails> with Single
   
   // Function to select tattoo/piercing date
   Future<void> _selectTattooDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2022),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        tattooDate = picked;
-        
-        // Calculate duration since tattoo/piercing
-        final duration = DateTime.now().difference(tattooDate!);
-        final monthsElapsed = duration.inDays / 30; // Approximate months
-        
-        if (monthsElapsed < 6) {
-          // Show alert if less than 6 months
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Text("Information"),
-                content: const Text("Recent tattoos or piercings (less than 6 months old) may temporarily disqualify you from donating blood."),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("I Understand"),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-      });
-    }
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime(2022),
+    lastDate: DateTime.now(),
+  );
+  if (picked != null) {
+    setState(() {
+      // Store only the date part by setting time to midnight
+      tattooDate = DateTime(picked.year, picked.month, picked.day);
+      
+      // Calculate duration since tattoo/piercing
+      final duration = DateTime.now().difference(tattooDate!);
+      final monthsElapsed = duration.inDays / 30; // Approximate months
+      
+      if (monthsElapsed < 6) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Information"),
+              content: const Text("Recent tattoos or piercings (less than 6 months old) may temporarily disqualify you from donating blood."),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text("I Understand"),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
   }
+}
 
   void _addCondition(String condition) {
   if (condition.isNotEmpty && !chronicConditions.contains(condition)) {
@@ -911,44 +911,44 @@ Widget personalInfo(){
 Widget bloodInfo() {
   final themeProvider = Provider.of<ThemeProvider>(context);
   
-  Future<void> selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        lastDonationDate = picked;
-        
-        // Calculate duration between last donation and today
-        final duration = DateTime.now().difference(lastDonationDate!);
-        final monthsElapsed = duration.inDays / 30; // Approximate months
-        
-        if (monthsElapsed < 3) {
-          // Show alert if less than 3 months
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Text("Warning"),
-                content: const Text("You cannot donate blood now. Minimum 3 months recovery is required."),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("OK"),
-                  ),
-                ],
-              );
-            },
-          );
-        }
-      });
-    }
+ Future<void> selectDate(BuildContext context) async {
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime(2000),
+    lastDate: DateTime.now(),
+  );
+  if (picked != null) {
+    setState(() {
+      // Store only the date part by setting time to midnight
+      lastDonationDate = DateTime(picked.year, picked.month, picked.day);
+      
+      // Calculate duration between last donation and today
+      final duration = DateTime.now().difference(lastDonationDate!);
+      final monthsElapsed = duration.inDays / 30; // Approximate months
+      
+      if (monthsElapsed < 3) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Warning"),
+              content: const Text("You cannot donate blood now. Minimum 3 months recovery is required."),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
   }
+}
 
   return Form(
     key: _bloodFormKey,

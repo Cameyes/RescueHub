@@ -272,6 +272,43 @@ Future deleteReview(String shelterId, String reviewId) async {
         .delete();
   }
 
+  //method to check and delete expired food items
+  Future<void> checkAndDeleteExpiredFood() async {
+    try {
+      final DateTime currentDate = DateTime.now();
+      
+      // Query for expired food items
+      QuerySnapshot foodSnapshot = await FirebaseFirestore.instance
+          .collection('food')
+          .get();
+      
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+      bool hasExpiredItems = false;
+      List<String> deletedFoodNames = [];
+      
+      for (DocumentSnapshot doc in foodSnapshot.docs) {
+        // Convert stored timestamp to DateTime
+        DateTime expiryDate = (doc['Expirty-Date'] as Timestamp).toDate();
+        
+        if (currentDate.isAfter(expiryDate)) {
+          batch.delete(doc.reference);
+          hasExpiredItems = true;
+          deletedFoodNames.add(doc['FoodName'] ?? 'Unknown Food Item');
+        }
+      }
+      
+      if (hasExpiredItems) {
+        await batch.commit();
+        print('Deleted expired food items: ${deletedFoodNames.join(", ")}');
+      }
+      
+      return;
+    } catch (e) {
+      print('Error deleting expired food: $e');
+      throw e;
+    }
+  }
+
   //For Food Reviews
 
   // Add a review to the "reviews" subcollection of a specific shelter

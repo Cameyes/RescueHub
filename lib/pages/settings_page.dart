@@ -38,6 +38,9 @@ class _SettingsPageState extends State<SettingsPage> {
     'ambulance':'Ambulance',
     'medical':'Medical Assistance',
     'blood':'Blood Donors',
+    'preparedness':'Preparedness',
+    'fitfor':'Fit for',
+    'preference':'Preference'
   };
 
     @override
@@ -105,6 +108,9 @@ class _SettingsPageState extends State<SettingsPage> {
           'ambulance':'Ambulance',
           'medical':'Medical Assistance',
           'blood':'Blood Donors',
+          'preparedness':'Preparedness',
+          'fitfor':'Fit for',
+          'preference':'Preference'
         };
       });
       return;

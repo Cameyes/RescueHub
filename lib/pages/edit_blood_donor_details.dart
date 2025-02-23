@@ -86,21 +86,31 @@ class _EditBloodDonorDetailsState extends State<EditBloodDonorDetails> with Sing
     _tabController = TabController(length: 6, vsync: this);
   
     // Initialize controllers with empty values to prevent LateInitializationError
-  nameController = TextEditingController();
-  ageController = TextEditingController();
-  contactController = TextEditingController();
-  emailController = TextEditingController();
-  addressController = TextEditingController();
-  weightController = TextEditingController();
-  medicationsController = TextEditingController();
-  travelHistoryController = TextEditingController();
-  emergencyNameController = TextEditingController();
-  emergencyPhoneController = TextEditingController();
+  nameController = TextEditingController(text: widget.bloodDonorData['name']);
+  ageController = TextEditingController(text: widget.bloodDonorData['age'].toString());
+  contactController = TextEditingController(text: widget.bloodDonorData['contact']);
+  emailController = TextEditingController(text: widget.bloodDonorData['email']);
+  addressController = TextEditingController(text: widget.bloodDonorData['address']);
+  weightController = TextEditingController(text: widget.bloodDonorData['weight']);
+  medicationsController = TextEditingController(text: widget.bloodDonorData['medications']);
+  travelHistoryController = TextEditingController(text: widget.bloodDonorData['travelHistory']);
+  emergencyNameController = TextEditingController(text: widget.bloodDonorData['emergencyContact']['name']);
+  emergencyPhoneController = TextEditingController(text: widget.bloodDonorData['emergencyContact']['phone']);
   _otherConditionsController = TextEditingController();
 
+  selectedGender = widget.bloodDonorData['gender'];
+  selectedBloodGroup = widget.bloodDonorData['bloodGroup'];
+  selectedDonationFrequency = widget.bloodDonorData['donationFrequency'];
+  lastDonationDate = widget.bloodDonorData['lastDonationDate'] != "" 
+      ? DateTime.parse(widget.bloodDonorData['lastDonationDate']) 
+      : null;
+  selectedDonType = widget.bloodDonorData['donationType'];
+  selectedAvailability = widget.bloodDonorData['availability']['status'];
+  preferredTimeSlots = List<String>.from(widget.bloodDonorData['availability']['timeSlots']);
 
     fetchDonorDetails();
   }
+  bool isLoading = true;
 
   @override
   void dispose() {
@@ -156,61 +166,101 @@ class _EditBloodDonorDetailsState extends State<EditBloodDonorDetails> with Sing
 }
 
   Future<void> fetchDonorDetails() async {
+  setState(() {
+    isLoading = true;
+  });
+
   try {
-    DocumentSnapshot donorSnapshot = await FirebaseFirestore.instance.collection('bloodDonor').doc(widget.donorId).get();
+    DocumentSnapshot donorSnapshot = await FirebaseFirestore.instance
+        .collection('bloodDonor')
+        .doc(widget.donorId)
+        .get();
+
     if (donorSnapshot.exists) {
       Map<String, dynamic> donorData = donorSnapshot.data() as Map<String, dynamic>;
 
-      nameController = TextEditingController(text: donorData['name']);
-      ageController = TextEditingController(text: donorData['age'].toString());
-      contactController = TextEditingController(text: donorData['contact']);
-      emailController = TextEditingController(text: donorData['email']);
-      addressController = TextEditingController(text: donorData['address']);
-      weightController = TextEditingController(text: donorData['weight']);
-      medicationsController = TextEditingController(text: donorData['medications']);
-      travelHistoryController = TextEditingController(text: donorData['travelHistory']);
-      emergencyNameController = TextEditingController(text: donorData['emergencyContact']['name']);
-      emergencyPhoneController = TextEditingController(text: donorData['emergencyContact']['phone']);
-      _otherConditionsController = TextEditingController();
+      setState(() {
+        // Update TextEditingController values
+        nameController.text = donorData['name'] ?? '';
+        ageController.text = donorData['age']?.toString() ?? '';
+        contactController.text = donorData['contact'] ?? '';
+        emailController.text = donorData['email'] ?? '';
+        addressController.text = donorData['address'] ?? '';
+        weightController.text = donorData['weight'] ?? '';
+        medicationsController.text = donorData['medications'] ?? '';
+        travelHistoryController.text = donorData['travelHistory'] ?? '';
+        emergencyNameController.text = donorData['emergencyContact']['name'] ?? '';
+        emergencyPhoneController.text = donorData['emergencyContact']['phone'] ?? '';
+        _otherConditionsController.text = '';
 
-      selectedGender = donorData['gender'];
-      selectedBloodGroup = donorData['bloodGroup'];
-      selectedDonationFrequency = donorData['donationFrequency'];
-      lastDonationDate = donorData['lastDonationDate'] != "" ? DateTime.parse(donorData['lastDonationDate']) : null;
-      selectedDonType = donorData['donationType'];
-      selectedAvailability = donorData['availability']['status'];
-      preferredTimeSlots = List<String>.from(donorData['availability']['timeSlots']);
-      fromTime = donorData['availability']['fromTime'] != "Not set" ? TimeOfDay.fromDateTime(DateTime.parse(donorData['availability']['fromTime'])) : null;
-      toTime = donorData['availability']['toTime'] != "Not set" ? TimeOfDay.fromDateTime(DateTime.parse(donorData['availability']['toTime'])) : null;
-      willingForEmergencyDonation = donorData['willingForEmergencyDonation'] ?? false;
-      consentForDonation = donorData['consent']['donationConsent'];
-      consentForNotifications = donorData['consent']['notificationsConsent'];
-      chronicConditions = List<String>.from(donorData['chronicConditions']);
-      hadRecentIllness = donorData['hadRecentIllness'] ?? false;
-      recentIllnessDetails = donorData['recentIllnessDetails'] ?? '';
-      hasTattooOrPiercing = donorData['hasTattooOrPiercing'] ?? false;
-      tattooDate = donorData['tattooDate'] != "" ? DateTime.parse(donorData['tattooDate']) : null;
+        // Update other state variables
+        selectedGender = donorData['gender'] ?? 'Male';
+        selectedBloodGroup = donorData['bloodGroup'];
+        selectedDonationFrequency = donorData['donationFrequency'] ?? 'First time Donor';
+        lastDonationDate = donorData['lastDonationDate'] != null && donorData['lastDonationDate'] != "" 
+            ? DateTime.parse(donorData['lastDonationDate']) 
+            : null;
+        selectedDonType = donorData['donationType'] ?? 'Whole Blood';
+        selectedAvailability = donorData['availability']['status'] ?? 'Full Time';
+        preferredTimeSlots = List<String>.from(donorData['availability']['timeSlots'] ?? []);
+        
+        // Handle time conversion safely
+        try {
+          fromTime = donorData['availability']['fromTime'] != null && donorData['availability']['fromTime'] != "Not set"
+              ? TimeOfDay.fromDateTime(DateTime.parse(donorData['availability']['fromTime']))
+              : null;
+        } catch (e) {
+          fromTime = null;
+          print("Error parsing fromTime: $e");
+        }
 
-      // Fetch URLs for uploaded files
+        try {
+          toTime = donorData['availability']['toTime'] != null && donorData['availability']['toTime'] != "Not set"
+              ? TimeOfDay.fromDateTime(DateTime.parse(donorData['availability']['toTime']))
+              : null;
+        } catch (e) {
+          toTime = null;
+          print("Error parsing toTime: $e");
+        }
+
+        willingForEmergencyDonation = donorData['willingForEmergencyDonation'] ?? false;
+        consentForDonation = donorData['consent']['donationConsent'] ?? false;
+        consentForNotifications = donorData['consent']['notificationsConsent'] ?? false;
+        chronicConditions = List<String>.from(donorData['chronicConditions'] ?? []);
+        hadRecentIllness = donorData['hadRecentIllness'] ?? false;
+        recentIllnessDetails = donorData['recentIllnessDetails'] ?? '';
+        hasTattooOrPiercing = donorData['hasTattooOrPiercing'] ?? false;
+        tattooDate = donorData['tattooDate'] != null && donorData['tattooDate'] != ""
+            ? DateTime.parse(donorData['tattooDate'])
+            : null;
+      });
+
+      // Fetch and handle file downloads
       if (donorData['profileImage'] != null && donorData['profileImage'] != "") {
         selectedImage_one = await downloadFile(donorData['profileImage']);
       }
-      if (donorData['documents']['idProof'] != null && donorData['documents']['idProof'] != "") {
-        idProof = await downloadFile(donorData['documents']['idProof']);
-        idProofName = donorData['documents']['idProof'].split('/').last;
-      }
-      if (donorData['documents']['medicalCertificate'] != null && donorData['documents']['medicalCertificate'] != "") {
-        medicalCertificate = await downloadFile(donorData['documents']['medicalCertificate']);
-        medicalCertificateName = donorData['documents']['medicalCertificate'].split('/').last;
-      }
-      if (donorData['documents']['donorCard'] != null && donorData['documents']['donorCard'] != "") {
-        donorCard = await downloadFile(donorData['documents']['donorCard']);
-        donorCardName = donorData['documents']['donorCard'].split('/').last;
-      }
 
-      setState(() {});
+      if (donorData['documents'] != null) {
+        if (donorData['documents']['idProof'] != null && donorData['documents']['idProof'] != "") {
+          idProof = await downloadFile(donorData['documents']['idProof']);
+          idProofName = donorData['documents']['idProof'].split('/').last;
+        }
+
+        if (donorData['documents']['medicalCertificate'] != null && donorData['documents']['medicalCertificate'] != "") {
+          medicalCertificate = await downloadFile(donorData['documents']['medicalCertificate']);
+          medicalCertificateName = donorData['documents']['medicalCertificate'].split('/').last;
+        }
+
+        if (donorData['documents']['donorCard'] != null && donorData['documents']['donorCard'] != "") {
+          donorCard = await downloadFile(donorData['documents']['donorCard']);
+          donorCardName = donorData['documents']['donorCard'].split('/').last;
+        }
+      }
+    } else {
+      throw Exception('Donor document does not exist');
     }
   } catch (e) {
+    print("Error fetching donor details: $e");
     Fluttertoast.showToast(
       msg: "Error fetching donor details: $e",
       toastLength: Toast.LENGTH_LONG,
@@ -218,9 +268,12 @@ class _EditBloodDonorDetailsState extends State<EditBloodDonorDetails> with Sing
       backgroundColor: Colors.red,
       textColor: Colors.white,
     );
+  } finally {
+    setState(() {
+      isLoading = false;
+    });
   }
 }
-
 Future<File?> downloadFile(String url) async {
   try {
     final tempDir = await getTemporaryDirectory();

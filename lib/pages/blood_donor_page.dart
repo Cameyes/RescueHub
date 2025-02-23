@@ -139,7 +139,7 @@ class _BloodDonorPageState extends State<BloodDonorPage> with SingleTickerProvid
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data.docs.isEmpty) {
-          return const Center(child: Text("No Medical Assistants Available"));
+          return const Center(child: Text("No Blood Donors Available"));
         }
 
         // Convert snapshot data to list for sorting
@@ -194,7 +194,7 @@ class _BloodDonorPageState extends State<BloodDonorPage> with SingleTickerProvid
                           CustomSlidableAction(
                             backgroundColor: themeProvider.isDarkMode ? Colors.grey.shade400 : Colors.red,
                             onPressed: (context) async {
-                              final medicalId = ds.id;
+                              final donorId = ds.id;
                               final confirmation = await showDialog(
                                 context: context,
                                 builder: (BuildContext context) {
@@ -217,7 +217,7 @@ class _BloodDonorPageState extends State<BloodDonorPage> with SingleTickerProvid
 
                               if (confirmation == true) {
                                 try {
-                                  await FirebaseFirestore.instance.collection("medical").doc(medicalId).delete();
+                                  await FirebaseFirestore.instance.collection("bloodDonor").doc(donorId).delete();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text("Medical Assistant Details deleted successfully")),
                                   );
@@ -581,7 +581,7 @@ class _BloodDonorPageState extends State<BloodDonorPage> with SingleTickerProvid
                         Navigator.push(
                                         context, 
                                         MaterialPageRoute(
-                                          builder: (context) => BloodDonorPopScreen()
+                                          builder: (context) => BloodDonorPopScreen(bloodDonorData: ds,)
                                         )
                                       );
                        },
