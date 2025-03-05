@@ -136,7 +136,7 @@ class _EditDetailsState extends State<EditDetails> {
           .update(updateInfo);
 
       Fluttertoast.showToast(
-        msg: "Details updated successfully!",
+        msg: " Shelter Details updated successfully!",
         backgroundColor: Colors.green,
       );
 

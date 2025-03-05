@@ -305,7 +305,7 @@ Future deleteReview(String shelterId, String reviewId) async {
       return;
     } catch (e) {
       print('Error deleting expired food: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -811,6 +811,43 @@ Future deletemedicalReview(String ambulanceId, String reviewId) async {
   }
 }
 
+//FOR FIRE AND SAFETY
+
+
+// Create Method
+  Future setfireAndsafetyDetails(Map<String, dynamic> fireAndsafetyInfoMap, String id) async {
+    return await FirebaseFirestore.instance
+        .collection("fireAndsafety")
+        .doc(id)
+        .set(fireAndsafetyInfoMap);
+  }
+
+  // Read Method with Optional Search
+  Future<Stream<QuerySnapshot>> getfireAndsafetyDetails({required String location}) async {
+  return FirebaseFirestore.instance
+      .collection("fireAndsafety")
+      .where("Location", isEqualTo: location)
+      //.orderBy('distance', descending: false) // Sort by distance
+      .snapshots();
+}
+
+  // Update Method
+  Future updatefireAndsafetyDetail(String id, Map<String, dynamic> updateInfo) async {
+    return await FirebaseFirestore.instance
+        .collection("fireAndsafety")
+        .doc(id)
+        .update(updateInfo);
+  }
+
+  // Delete Method
+  Future deletefireAndsafetyDetail(String id) async {
+    return await FirebaseFirestore.instance
+        .collection("fireAndsafety")
+        .doc(id)
+        .delete();
+  }
+
+
 //FOR BLOOD DONORS
 
 
@@ -843,6 +880,41 @@ Future deletemedicalReview(String ambulanceId, String reviewId) async {
   Future deletebloodDonorDetail(String id) async {
     return await FirebaseFirestore.instance
         .collection("bloodDonor")
+        .doc(id)
+        .delete();
+  }
+
+  //For COORDINATORS
+
+
+  // Create Method
+  Future addadminDetails(Map<String, dynamic> adminInfoMap, String id) async {
+    return await FirebaseFirestore.instance
+        .collection("adminDetail")
+        .doc(id)
+        .set(adminInfoMap);
+  }
+
+  // Read Method with Optional Search
+  Future<Stream<QuerySnapshot>> getadminDetails({required String location}) async {
+  return FirebaseFirestore.instance
+      .collection("adminDetail")
+      .where("Location", isEqualTo: location)
+      .snapshots();
+}
+
+  // Update Method
+  Future updateadminDetail(String id, Map<String, dynamic> updateInfo) async {
+    return await FirebaseFirestore.instance
+        .collection("adminDetail")
+        .doc(id)
+        .update(updateInfo);
+  }
+
+  // Delete Method
+  Future deleteadminDetail(String id) async {
+    return await FirebaseFirestore.instance
+        .collection("adminDetail")
         .doc(id)
         .delete();
   }

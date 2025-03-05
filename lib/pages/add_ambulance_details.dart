@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:food_delivery_app/pages/ambulance_page.dart';
 import 'package:path/path.dart' as path;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -7,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
 import 'package:food_delivery_app/pages/address_selector.dart';
-import 'package:food_delivery_app/pages/map_page.dart';
 import 'package:food_delivery_app/service/database.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -366,7 +366,7 @@ class _AddAmbulanceDetailsState extends State<AddAmbulanceDetails> {
       selectedAvailability = "Full Time";
     });
 
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MapPage(userId: widget.userId,selectedLoc: widget.Loc,)));
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => AmbulancePage(userId: widget.userId, location: widget.Loc)));
 
   } catch (e) {
     Fluttertoast.showToast(

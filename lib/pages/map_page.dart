@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
@@ -16,6 +15,7 @@ import 'package:food_delivery_app/pages/distance_data.dart';
 import 'package:food_delivery_app/pages/edit_cloth_details.dart';
 import 'package:food_delivery_app/pages/edit_food_details.dart';
 import 'package:food_delivery_app/pages/edit_shelter_details.dart';
+import 'package:food_delivery_app/pages/fire_and_safety_page.dart';
 import 'package:food_delivery_app/pages/location_selector.dart';
 import 'package:food_delivery_app/pages/map_screen.dart';
 import 'package:food_delivery_app/pages/medical_assistance_page.dart';
@@ -105,7 +105,6 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
       }
     }
   }
-
   return translatedData;
 }
 
@@ -234,8 +233,9 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
+        "Fire and Safety":FireAndSafetyPage(userId: widget.userId,location:  "Thrissur"),
         "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Thrissur"),
-        "Preparedness":PreparednessScreen(location: "Thrissur"),
+        "Preparedness":PreparednessScreen(location: "Thrissur",),
       },
       "Palakkad": {
         "Shelter": allShelterDetails(userId),
@@ -244,6 +244,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
+        "Fire and Safety":FireAndSafetyPage(userId: widget.userId,location: "Palakkad"),
         "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Palakkad"),
         "Preparedness":PreparednessScreen(location: "Palakkad"),
       },
@@ -254,6 +255,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         "Volunteer":VolunteerPage(userId: widget.userId,location: selectedLoc,),
         "Ambulance":AmbulancePage(userId:widget.userId ,location: selectedLoc,),
         "Medical Assistance":MedicalAssistancePage(userId: widget.userId,location: widget.selectedLoc,),
+        "Fire and Safety":FireAndSafetyPage(userId: widget.userId,location:  "Eranakulam"),
         "Blood Donors":BloodDonorPage(userId: widget.userId, location: "Eranakulam"),
         "Preparedness":PreparednessScreen(location: "Eranakulam"),
       },
@@ -267,7 +269,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
      final languageProvider=Provider.of<LanguageProvider>(context);
     List<Widget> pages = [
       DefaultTabController(
-        length: 8,
+        length: 9,
         child: Scaffold(
          appBar: AppBar(
   toolbarHeight: 120,
@@ -408,6 +410,11 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         SizedBox(
         width: 150,
         child: Tab(text:languageProvider.translations['medical']??"Medical Assistance")),
+        SizedBox(
+      width: 120, // Width for Shelter tab
+    
+      child: Tab(text: languageProvider.translations['fire']??"Fire and Safety"),
+    ),
          SizedBox(
         width: 120,
         child:  Tab(text:languageProvider.translations['blood']??"Blood Donors")),
@@ -436,6 +443,8 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
                         const Center(child: Text("No Ambulance data Available"),),
                     locationContent(widget.userId)[selectedLoc]?["Medical Assistance"] ??
                         const Center(child: Text("No  Medical Assistance data Available"),),
+                         locationContent(widget.userId)[selectedLoc]?["Fire and Safety"] ??
+                        const Center(child: Text("No Fire and Safety Assistants available")),
                     locationContent(widget.userId)[selectedLoc]?["Blood Donors"] ??
                         const Center(child: Text("No  Blood Donor data Available"),),
                     locationContent(widget.userId)[selectedLoc]?["Preparedness"] ??
@@ -742,7 +751,7 @@ Widget allShelterDetails(String userId) {
                                             Row(
                                               children: [
                                                 Text(
-                                                   languageProvider.translations['preference']??"Preference "+": ${ds["Size"]}",
+                                                   languageProvider.translations['preference']??"Preference "": ${ds["Size"]}",
                                                   style: TextStyle(
                                                     color: themeProvider.isDarkMode?Colors.white: Colors.black,
                                                     fontSize: fontSize,
@@ -1811,12 +1820,57 @@ class _PopScreenState extends State<PopScreen> {
   String address="Loading...";
   final TextEditingController _reviewController=TextEditingController();
   int selectedRating=5;
+   Map<String, String>? translatedData;
 
    @override
   void initState() {
     super.initState();
     _getAddress();
+    _translateContent();
   }
+
+   Future<void> _translateContent() async {
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final targetLanguage = languageProvider.currentLocale.languageCode;
+    
+    if (targetLanguage == 'en') {
+      setState(() {
+        translatedData = {
+          'Name': widget.shelterData['Name'],
+          'Description': widget.shelterData['Description'],
+          'Preference': widget.shelterData['Preference'],
+          'Size': widget.shelterData['Size'].toString(),
+        };
+      });
+      return;
+    }
+    try {
+      final translationService = TranslationService();
+      Map<String, String> translated = {};
+
+      // Translate essential fields
+      translated['Name'] = await translationService.translateText(
+        widget.shelterData['Name'].toString(), 
+        targetLanguage
+      );
+      translated['Description'] = await translationService.translateText(
+        widget.shelterData['Description'].toString(), 
+        targetLanguage
+      );
+      translated['Preference'] = await translationService.translateText(
+        widget.shelterData['Preference'].toString(), 
+        targetLanguage
+      );
+      if (mounted) {
+        setState(() {
+          translatedData = translated;
+        });
+      }
+    } catch (e) {
+      print('Translation error: $e');
+    }
+  }
+
 
    Future<void> _getAddress() async {
     try {
@@ -1852,10 +1906,11 @@ class _PopScreenState extends State<PopScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
     return Scaffold(
       backgroundColor:themeProvider.isDarkMode?Colors.grey.shade800: Colors.white,
       appBar: AppBar(
-        title: Text("${widget.shelterData["Name"]}"),
+        title: Text(translatedData?['Name'] ?? widget.shelterData["Name"]),
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
            onPressed: () {
@@ -1887,7 +1942,7 @@ class _PopScreenState extends State<PopScreen> {
                       children: [
                          Padding(
                           padding: const EdgeInsets.only(top: 12.0,left: 12.0),
-                          child: Text("${widget.shelterData["Name"]}",
+                          child: Text(translatedData?['Name'] ?? widget.shelterData["Name"],
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24.0,
@@ -1937,12 +1992,16 @@ class _PopScreenState extends State<PopScreen> {
                         ),
                          Padding(
                           padding: const EdgeInsets.only(left: 12.0),
-                          child: Text("Preference : ${widget.shelterData["Preference"]}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),),
+                          child: Text(
+                            languageProvider.translations['preference'] != null 
+                              ? "${languageProvider.translations['preference']}: ${translatedData?['Preference'] ?? widget.shelterData["Preference"]}"
+                              : "Preference: ${translatedData?['Preference'] ?? widget.shelterData["Preference"]}",
+                            style: TextStyle(
+                              color: themeProvider.isDarkMode ? Colors.white : Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         )
                       ],
                     ),
@@ -1952,7 +2011,7 @@ class _PopScreenState extends State<PopScreen> {
               const SizedBox(height: 20,),
                Padding(
                 padding: EdgeInsets.all(12.0),
-                child: Text("Date Created",
+                child: Text(languageProvider.translations['datecre']?? "Date Created",
                       style: TextStyle(
                       color:themeProvider.isDarkMode?Colors.white: Colors.black,
                       fontSize: 28.0,
@@ -2041,7 +2100,7 @@ class _PopScreenState extends State<PopScreen> {
                 ],
               ),Padding(
                 padding: const EdgeInsets.all(12.0),
-                child: Text("Description",
+                child: Text(languageProvider.translations['description']?? "Description",
                       style: TextStyle(
                       color: themeProvider.isDarkMode?Colors.white: Colors.black,
                       fontSize: 28.0,
@@ -2050,7 +2109,7 @@ class _PopScreenState extends State<PopScreen> {
               ),
                Padding(
                 padding: const EdgeInsets.all(12.0),
-                child: Text("${widget.shelterData["Description"]}",
+                child: Text(translatedData?['Description'] ?? widget.shelterData["Description"],
                       style: TextStyle(
                       color:themeProvider.isDarkMode?Colors.white: Colors.black,
                       fontSize: 22.0,
@@ -2058,7 +2117,7 @@ class _PopScreenState extends State<PopScreen> {
                           ),),
               ),
               const SizedBox(height: 80,),
-              Text("Reviews",
+              Text(languageProvider.translations['rev']?? "Reviews",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -2076,7 +2135,7 @@ class _PopScreenState extends State<PopScreen> {
                   return const CircularProgressIndicator(color: Colors.orange,);
                 }
                 if(!snapshot.hasData || snapshot.data!.docs.isEmpty){
-                  return const Text("No reviews yet.");
+                  return  Text(languageProvider.translations['norev']?? "No reviews yet.");
                 }
                 return ListView.builder(
                   shrinkWrap: true,
@@ -2145,7 +2204,7 @@ class _PopScreenState extends State<PopScreen> {
                   });
               }),
               const SizedBox(height: 20,),
-              const Text("Leave a Review",
+               Text(languageProvider.translations['leaverev']?? "Leave a Review",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -2166,8 +2225,8 @@ class _PopScreenState extends State<PopScreen> {
             ),
             TextField(
               controller: _reviewController,
-              decoration: const InputDecoration(
-                labelText: "Write your Review",
+              decoration:  InputDecoration(
+                labelText: languageProvider.translations['writerev']?? "Write your Review",
                 border: OutlineInputBorder(),
               ),
               maxLines: 5,
@@ -2177,7 +2236,7 @@ class _PopScreenState extends State<PopScreen> {
               if(_reviewController.text.trim().isEmpty)
               {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Review Cannot be Empty")),
+                  SnackBar(content: Text(languageProvider.translations['emptyrev']?? "Review Cannot be Empty")),
                 );
                 return;
               }
@@ -2191,7 +2250,7 @@ class _PopScreenState extends State<PopScreen> {
 
               if(existingReview.docs.isNotEmpty){
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("You can Only Submit One Review")),
+                   SnackBar(content: Text(languageProvider.translations['onerev']?? "You can Only Submit One Review")),
                 );
                 return;
               }
@@ -2219,7 +2278,7 @@ class _PopScreenState extends State<PopScreen> {
                   );
 
             } , 
-            child:  Text("Submit Review",
+            child:  Text(languageProvider.translations['subrev']??"Submit Review",
                       style: TextStyle(
                         color: themeProvider.isDarkMode?Colors.white: Colors.black,
                       ),
@@ -2236,7 +2295,7 @@ class _PopScreenState extends State<PopScreen> {
                         color:themeProvider.isDarkMode?Colors.grey.shade600: Colors.blue,
                         borderRadius: BorderRadius.circular(20)
                     ),
-                    child:  Center(child: Text("Book Now",
+                    child:  Center(child: Text(languageProvider.translations['booknow']?? "Book Now",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:food_delivery_app/service/language_provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+
 import 'package:flutter_animate/flutter_animate.dart';
 
 class PreparednessScreen extends StatefulWidget {
   final String location;
-  const PreparednessScreen({Key? key, required this.location}) : super(key: key);
+  const PreparednessScreen({super.key, required this.location});
 
   @override
   State<PreparednessScreen> createState() => _PreparednessScreenState();
@@ -42,6 +44,7 @@ class _PreparednessScreenState extends State<PreparednessScreen> {
   }
 
   Color _getRiskColor(String riskLevel, bool isDarkMode) {
+    
     if (isDarkMode) {
       switch (riskLevel) {
         case 'High':
@@ -72,6 +75,7 @@ class _PreparednessScreenState extends State<PreparednessScreen> {
       case "Thrissur":
         return [
           DisasterInfo(
+            
             type: 'Floods',
             riskLevel: 'High',
             description: 'Thrissur is prone to flooding during monsoon season, particularly in low-lying areas and near rivers.',
@@ -418,10 +422,10 @@ class DisasterCard extends StatefulWidget {
   final int index;
   
   const DisasterCard({
-    Key? key, 
+    super.key, 
     required this.disaster,
     required this.index,
-  }) : super(key: key);
+  });
 
   @override
   State<DisasterCard> createState() => _DisasterCardState();
@@ -506,7 +510,8 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+     final languageProvider = Provider.of<LanguageProvider>(context);
+
     return Card(
       margin: const EdgeInsets.all(8.0),
       color: _getRiskColor(widget.disaster.riskLevel, themeProvider.isDarkMode),
@@ -514,7 +519,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
         children: [
           ListTile(
             title: Text(
-              widget.disaster.type,
+             languageProvider.translations[widget.disaster.type.toLowerCase()] ?? widget.disaster.type,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
@@ -595,7 +600,8 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.disaster.description,
+                   languageProvider.translations['${widget.disaster.type.toLowerCase()}desc'] ?? 
+                  widget.disaster.description,
                     style: TextStyle(
                       color: themeProvider.isDarkMode ? Colors.white : Colors.black87,
                     ),
@@ -607,7 +613,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                     children: [
                       Expanded(
                         child: Text(
-                          'Preparedness Points',
+                          languageProvider.translations['prep'] ?? 'Preparedness Points',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -628,6 +634,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                   if (_showTips) ...[
                     const SizedBox(height: 8),
                     ...widget.disaster.preparednessPoints.asMap().entries.map((entry) {
+                      final index = entry.key + 1;
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
@@ -640,7 +647,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                entry.value,
+                               languageProvider.translations['${widget.disaster.type.toLowerCase()}pt$index'] ??  entry.value,
                                 style: TextStyle(
                                   color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
                                 ),
@@ -654,7 +661,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                     }),
                   ],
                   const SizedBox(height: 16),
-                  _buildSection('Safety Tips', widget.disaster.tips, themeProvider.isDarkMode),
+                  _buildSection( languageProvider.translations['sftips'] ?? 'Safety Tips', widget.disaster.tips, themeProvider.isDarkMode),
                   const SizedBox(height: 16),
                   _buildVideoSection(widget.disaster.videoIds, themeProvider.isDarkMode),
                 ],
@@ -667,6 +674,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
   }
 
   Widget _buildSection(String title, List<String> items, bool isDarkMode) {
+    final languageProvider = Provider.of<LanguageProvider>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,6 +688,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
         ),
         const SizedBox(height: 8),
         ...items.asMap().entries.map((entry) {
+           final index = entry.key + 1;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
@@ -691,7 +700,7 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    entry.value,
+                     languageProvider.translations['${widget.disaster.type.toLowerCase()}tip$index'] ?? entry.value,
                     style: TextStyle(
                       color: isDarkMode ? Colors.white70 : Colors.black87,
                     ),
@@ -708,11 +717,12 @@ class _DisasterCardState extends State<DisasterCard> with SingleTickerProviderSt
   }
 
   Widget _buildVideoSection(List<String> videoIds, bool isDarkMode) {
+    final languageProvider = Provider.of<LanguageProvider>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Rescue Tips Videos',
+          languageProvider.translations['rescuevid']?? 'Rescue Tips Videos',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,

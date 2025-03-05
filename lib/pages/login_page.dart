@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
-import 'package:food_delivery_app/pages/admin_screen.dart';
+import 'package:food_delivery_app/pages/admin/admin_details_form.dart';
+import 'package:food_delivery_app/pages/admin/admin_screen.dart';
 import 'package:food_delivery_app/pages/location_selector.dart';
 import 'package:food_delivery_app/pages/map_page.dart';
 import 'package:food_delivery_app/pages/sign_up_page.dart';
@@ -49,9 +51,35 @@ class _loginScreenState extends State<loginScreen> {
       isLoading=false;
     });
     //Navigate based on role to Show the error message
-    if(result=="Admin"){
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=>const adminScreen()));
+    // In the login() method, modify the Admin condition:
+
+if (result == "Admin") {
+  String? userId = await _authService.getCurrentUserId();
+  if (userId != null) {
+    DocumentSnapshot adminDoc = await FirebaseFirestore.instance
+        .collection('adminDetails')
+        .doc(userId)
+        .get();
+
+    if (adminDoc.exists) {
+      String adminLocation = adminDoc["location"] ?? "Unknown Location";
+      
+      Navigator.pushReplacement(
+        context, 
+        MaterialPageRoute(
+          builder: (_) => AdminScreen(userId: userId, location: adminLocation),
+        ),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context, 
+        MaterialPageRoute(
+          builder: (_) => AdminDetailsForm(userId: userId, userEmail: emailcontroller.text),
+        ),
+      );
     }
+  }
+}
 
     else if(result == "User"){
       String? userId=await _authService.getCurrentUserId(); // Get userId from auth

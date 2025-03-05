@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:food_delivery_app/pages/ambulance_page.dart';
 import 'package:path/path.dart' as path;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -7,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
 import 'package:food_delivery_app/pages/address_selector.dart';
-import 'package:food_delivery_app/pages/map_page.dart';
 import 'package:food_delivery_app/service/database.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 class EditAmbulanceDetails extends StatefulWidget {
   final String userId;
   final String ambulanceId;
+  final String location;
   final Map<String, dynamic> ambulanceData;
 
   const EditAmbulanceDetails({
@@ -24,6 +25,7 @@ class EditAmbulanceDetails extends StatefulWidget {
     required this.userId,
     required this.ambulanceId,
     required this.ambulanceData,
+    required this.location,
   });
 
   @override
@@ -387,7 +389,7 @@ class _EditAmbulanceDetailsState extends State<EditAmbulanceDetails> {
       await DatabaseMethods().updateambulanceDetail(widget.ambulanceId, ambulanceInfoMap);
 
       Fluttertoast.showToast(
-        msg: "Volunteer details updated successfully!",
+        msg: "Ambulance Driverr details updated successfully!",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.CENTER,
         timeInSecForIosWeb: 1,
@@ -399,10 +401,7 @@ class _EditAmbulanceDetailsState extends State<EditAmbulanceDetails> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => MapPage(
-            userId: widget.userId,
-            selectedLoc: widget.ambulanceData['location'],
-          ),
+          builder: (_) => AmbulancePage(userId: widget.userId,location:widget.location ,),
         ),
       );
     } catch (e) {

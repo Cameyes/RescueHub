@@ -659,7 +659,7 @@ return createdAtA.compareTo(createdAtB);
                                                         userId: widget.userId,
                                                         ambulanceId: ds.id,
                                                         ambulanceData: ds.data() as Map<String, dynamic>,
-                                                        //location: widget.location,
+                                                        location: widget.location,
                                                       )
                                                     )
                                                   );
@@ -675,7 +675,7 @@ return createdAtA.compareTo(createdAtB);
                                       children: [
                                         ds["ambAvail"]=="Own Vehicle"?
                                         Icon(FontAwesomeIcons.truckMedical,size: 12,):
-                                        Icon(FontAwesomeIcons.hospital),
+                                        Icon(FontAwesomeIcons.hospital,size:12,),
                                         const SizedBox(width: 10,),
                                         Text("${ds["ambAvail"]}",
                                         style: TextStyle(

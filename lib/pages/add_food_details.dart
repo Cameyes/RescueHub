@@ -151,7 +151,7 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
 
       // Show success message
       Fluttertoast.showToast(
-        msg: "cloth details updated successfully!",
+        msg: "Food details updated successfully!",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.CENTER,
         timeInSecForIosWeb: 1,

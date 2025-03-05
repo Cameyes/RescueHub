@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:food_delivery_app/pages/blood_donor_page.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -367,7 +368,7 @@ Future<File?> downloadFile(String url) async {
         textColor: Colors.white,
       );
 
-      Navigator.pop(context);
+      Navigator.push(context, MaterialPageRoute(builder: (context)=>BloodDonorPage(userId: widget.userId, location: widget.location)));
     } catch (e) {
       Fluttertoast.showToast(
         msg: "Error updating donor details: $e",

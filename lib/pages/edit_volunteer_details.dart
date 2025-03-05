@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:food_delivery_app/pages/volunteer_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -168,7 +169,7 @@ class _EditVolunteerDetailsState extends State<EditVolunteerDetails> {
         backgroundColor: Colors.green,
       );
 
-      Navigator.pop(context);
+      Navigator.push(context, MaterialPageRoute(builder: (context)=>VolunteerPage(userId: widget.userId, location: widget.location)));
     } catch (e) {
       Fluttertoast.showToast(
         msg: "Error updating details: $e",
