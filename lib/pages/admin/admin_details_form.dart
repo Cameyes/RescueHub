@@ -9,7 +9,6 @@ import 'package:food_delivery_app/pages/admin/admin_verification.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class AdminDetailsForm extends StatefulWidget {
   final String userId;

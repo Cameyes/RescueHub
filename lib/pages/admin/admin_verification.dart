@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:food_delivery_app/pages/admin/admin_screen.dart';
 import 'package:food_delivery_app/pages/login_page.dart';

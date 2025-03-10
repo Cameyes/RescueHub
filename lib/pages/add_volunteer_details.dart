@@ -311,6 +311,7 @@ class _AddVolunteerDetailsState extends State<AddVolunteerDetails> {
       },
       'status': 'active',
       'lastUpdated': FieldValue.serverTimestamp(),
+      'currentStat':"free",
     };
 
     // Save data to Firestore

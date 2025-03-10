@@ -30,6 +30,10 @@ class NavBar extends StatelessWidget {
                 text: translations['home'] ?? 'Home',
               ),
               GButton(
+                icon: Icons.timer,
+                text: translations['activity'] ?? 'Activity',
+              ),
+              GButton(
                 icon: FontAwesomeIcons.bell,
                 text: translations['notifications'] ?? 'Notifications',
               ),

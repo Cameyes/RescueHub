@@ -87,7 +87,7 @@ if (result == "Admin") {
     final selectedLocation= await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const LocationSelector(initialLocation: "Thrissur"),
+        builder: (_) =>  LocationSelector(initialLocation: "Thrissur",),
       ),
     );
     if (selectedLocation != null) {

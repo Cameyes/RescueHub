@@ -12,6 +12,8 @@ import 'package:firebase_storage/firebase_storage.dart'; // Import for Firebase 
 import 'package:provider/provider.dart';
 import 'package:random_string/random_string.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AddDetails extends StatefulWidget {
   final String userId;
@@ -28,6 +30,12 @@ class _AddDetailsState extends State<AddDetails> {
   File? selectedImage_one; // Controller for First Image
   File? selectedImage_two; // Controller for Second Image
   bool isloading = false; //Controller for CircularProgressIndicator
+
+  double? distance;
+String? distanceText;
+String? durationText;
+
+
 
   TextEditingController nameController = TextEditingController(); // Controller for Name field
   TextEditingController ageController = TextEditingController(); // Controller for age field
@@ -87,6 +95,17 @@ class _AddDetailsState extends State<AddDetails> {
   }
 
   Future<void> saveDetails() async {
+
+    if (distance == null) {
+  Fluttertoast.showToast(
+    msg: "Please select a location to calculate distance",
+    toastLength: Toast.LENGTH_SHORT,
+    gravity: ToastGravity.CENTER,
+    backgroundColor: Colors.red,
+    textColor: Colors.white,
+  );
+  return;
+}
     //Validate whether all fields are filled or not
     if (!_formKey.currentState!.validate()) {
     // If any field is invalid, stop here.
@@ -154,6 +173,10 @@ class _AddDetailsState extends State<AddDetails> {
         'Description': descriptionController.text,
         'Date': formattedDate, // Add date
         'Time': formattedTime, // Add time
+        'distance': distance,  // Add distance
+        'distanceText': distanceText,  // Add distance text
+        'status': "not booked",  // Add initial status
+        
       };
 
       // Save data to Firestore
@@ -408,11 +431,67 @@ class _AddDetailsState extends State<AddDetails> {
                                 addressController.text =
                                     "${selectedLocation.latitude}, ${selectedLocation.longitude}";
                               });
+                              try {
+      String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+      String url = 'https://maps.googleapis.com/maps/api/directions/json'
+          '?origin=${widget.Loc}'  // Assuming widget.Loc is in "lat,lng" format
+          '&destination=${selectedLocation.latitude},${selectedLocation.longitude}'
+          '&mode=driving'
+          '&key=$apiKey';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        
+        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+          var route = data['routes'][0]['legs'][0];
+          var distanceInMeters = route['distance']['value'];
+          setState(() {
+            distanceText = route['distance']['text'];
+            durationText = route['duration']['text'];
+            distance = distanceInMeters / 1000.0;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error calculating distance: $e');
+    }
                             }
                        },
                      )
                    ],
                  ),
+                 const SizedBox(height: 10),
+                 if (distance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Text(
+                            "Distance: ",
+                            style: TextStyle(
+                              color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                              fontSize: 18,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Text(
+                              distanceText ?? '${distance!.toStringAsFixed(2)} km',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 const SizedBox(height: 20),
                 Text(
                   "Size of Affordable Occupants",

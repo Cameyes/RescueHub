@@ -143,6 +143,7 @@ class DatabaseMethods {
   return FirebaseFirestore.instance
       .collection("shelter")
       .where("Location", isEqualTo: location)
+      .where('status',isEqualTo:'not booked')
       //.orderBy('distance', descending: false) // Sort by distance
       .snapshots();
 }
@@ -531,7 +532,7 @@ Future<void> deleteNotification(String notificationId) async {
   return FirebaseFirestore.instance
       .collection("volunteer")
       .where("Location", isEqualTo: location)
-      //.orderBy('distance', descending: false) // Sort by distance
+      .where("currentStat",isEqualTo: "free")
       .snapshots();
 }
 

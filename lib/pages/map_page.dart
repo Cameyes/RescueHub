@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+import 'package:food_delivery_app/pages/activity_screen.dart';
 import 'package:food_delivery_app/pages/add_cloth_details.dart';
 import 'package:food_delivery_app/pages/add_details.dart';
 import 'package:food_delivery_app/pages/add_food_details.dart';
@@ -16,6 +19,7 @@ import 'package:food_delivery_app/pages/edit_cloth_details.dart';
 import 'package:food_delivery_app/pages/edit_food_details.dart';
 import 'package:food_delivery_app/pages/edit_shelter_details.dart';
 import 'package:food_delivery_app/pages/fire_and_safety_page.dart';
+
 import 'package:food_delivery_app/pages/location_selector.dart';
 import 'package:food_delivery_app/pages/map_screen.dart';
 import 'package:food_delivery_app/pages/medical_assistance_page.dart';
@@ -36,7 +40,8 @@ import 'package:provider/provider.dart';
 class MapPage extends StatefulWidget {
   final String userId;
   final String selectedLoc;
-  const MapPage({super.key, required this.userId, required this.selectedLoc});
+  final bool showTutorial;
+  const MapPage({super.key, required this.userId, required this.selectedLoc, this.showTutorial = false});
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -150,6 +155,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+    
     selectedLoc = widget.selectedLoc;
     initializeUserProfileStream();
     getontheload(selectedLoc);
@@ -457,7 +463,7 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
           ),
         ),
       ),
-      
+      ActivityScreen(userId:widget.userId),
        NotificationsPage(userId: widget.userId,),
       const SettingsPage(),
     ];
@@ -498,6 +504,7 @@ Widget allShelterDetails(String userId) {
                             return const Center(child: CircularProgressIndicator());
                           }
                           final translatedData = translationSnapshot.data!;
+                          final storedDistance = ds['distance'] ?? 0.0;
                         return Padding(
                           padding: const EdgeInsets.all(10.0),
                           child:  Slidable(
@@ -830,7 +837,11 @@ Widget allShelterDetails(String userId) {
                                                               var distanceText = route['distance']['text'];
                                                               var durationText = route['duration']['text'];
                                                               var distanceInKm = distanceInMeters / 1000.0;
-                        
+
+                                                                await FirebaseFirestore.instance
+                                                                    .collection('shelter')
+                                                                    .doc(ds.id)
+                                                                    .update({'distance': distanceInKm});
                                                               String encodedPoints = data['routes'][0]['overview_polyline']['points'];
                                                               
                                                               Navigator.push(
@@ -1829,6 +1840,485 @@ class _PopScreenState extends State<PopScreen> {
     _translateContent();
   }
 
+  Future<Map<String, DateTime>?> _showBookingDialog(BuildContext context) {
+  DateTime? fromDate;
+  DateTime? toDate;
+  
+  return showDialog<Map<String, DateTime>>(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            title: const Text('Select Stay Period'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('From Date'),
+                  subtitle: Text(fromDate?.toString().split(' ')[0] ?? 'Select date'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final selected = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (selected != null) {
+                      setState(() {
+                        fromDate = selected;
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  title: const Text('To Date'),
+                  subtitle: Text(toDate?.toString().split(' ')[0] ?? 'Select date'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    if (fromDate == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please select from date first')),
+                      );
+                      return;
+                    }
+                    final selected = await showDatePicker(
+                      context: context,
+                      initialDate: fromDate!.add(const Duration(days: 1)),
+                      firstDate: fromDate!.add(const Duration(days: 1)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (selected != null) {
+                      setState(() {
+                        toDate = selected;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: const Text('Proceed'),
+                onPressed: () async {
+                 if (fromDate != null && toDate != null) {
+                    // Show waiting toast
+                    Fluttertoast.showToast(
+                      msg: "Waiting for volunteer to accept...",
+                      toastLength: Toast.LENGTH_LONG,
+                      gravity: ToastGravity.BOTTOM,
+                    );
+                     // Temporarily remove shelter from list
+                    await FirebaseFirestore.instance
+                        .collection('shelter')
+                        .doc(widget.shelterData.id)
+                        .update({'status': 'pending'});
+
+                    Navigator.of(context).pop({
+                      'fromDate': fromDate!,
+                      'toDate': toDate!,
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please select both dates')),
+                    );
+                  }
+                },
+              ),
+            ],
+          );
+        }
+      );
+    },
+  );
+}
+
+
+
+
+
+Future<void> _handleBooking(BuildContext context, DocumentSnapshot shelterData) async {
+  final dates = await _showBookingDialog(context);
+  if (dates == null) return;
+
+  try {
+    // Get current user details
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userProfile = await FirebaseFirestore.instance
+        .collection('Profile')
+        .doc(currentUser?.uid)
+        .get();
+
+        // Get donor's profile details including image
+    final donorProfile = await FirebaseFirestore.instance
+        .collection('Profile')
+        .doc(shelterData['UserId'])
+        .get();
+
+    // Get first available volunteer
+    final volunteersSnapshot = await FirebaseFirestore.instance
+        .collection('volunteer')
+        .where('status', isEqualTo: 'active')
+        .get();
+
+    if (volunteersSnapshot.docs.isEmpty) {
+      throw Exception('No volunteers available');
+    }
+
+    // Fetch reviews for the shelter
+         final reviewsSnapshot = await FirebaseFirestore.instance
+        .collection('shelter')
+        .doc(shelterData.id)
+        .collection('reviews')
+        .get();
+
+        // Convert reviews to a list of maps
+    final reviews = reviewsSnapshot.docs.map((doc) => doc.data()).toList();
+
+    //final volunteerData = volunteersSnapshot.docs.first;
+
+    // Create booking data
+    final bookingData = {
+      'shelterDetails': {
+        'houseName': shelterData['HouseName'],
+        'description': shelterData['Description'],
+        'images': shelterData['Images'],
+        'coordinates': shelterData['Address'],
+        'fit':shelterData['Size'],
+        'preference':shelterData['Preference'],
+        'reviews':reviews,
+        'shelterId':shelterData['Id'],
+        'date':shelterData['Date']
+      },
+      'donorDetails': {
+        'userId': shelterData['UserId'],
+        'name': shelterData['Name'],
+        'contact': shelterData['Contact'],
+        'coordinates':shelterData['Address'],
+        'date':shelterData['Date'],
+        'profileImage': donorProfile.data()?['Image'] ?? '',
+        'age':shelterData['Age'],
+         'gender':shelterData['Gender'],
+         'Address':shelterData['Address'],
+      },
+      'requesterDetails': {
+        'userId': currentUser?.uid,
+        'name': userProfile['Name'],
+        'contact': userProfile['Contact'],
+        'coordinates': userProfile['location'],
+        'profileImage': userProfile['Image'] ?? '',
+        'age':userProfile['Age'],
+        'gender':userProfile['Gender'],
+        'Address':userProfile['Address'],
+      },
+      'stayPeriod': {
+        'fromDate': dates['fromDate'],
+        'toDate': dates['toDate'],
+      },
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'district':shelterData['Location'],
+      'distance':shelterData['distance'],
+    };
+
+  // Start volunteer request process
+    bool volunteerFound = await _requestVolunteer(
+      bookingData, 
+      volunteersSnapshot.docs, 
+      0
+    );
+
+    if (!volunteerFound) {
+
+      // Reset shelter status if no volunteer accepts
+      await FirebaseFirestore.instance
+          .collection('shelter')
+          .doc(shelterData.id)
+          .update({'status': 'not booked'});
+
+      // Handle case when no volunteer accepts
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No volunteer available at the moment. Please try again later.')),
+      );
+      return;
+    }
+
+    // If volunteer accepts, show success message
+    Fluttertoast.showToast(
+      msg: "Shelter has been requested for booking",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+
+    // Update shelter status to booked
+    await FirebaseFirestore.instance
+        .collection('shelter')
+        .doc(shelterData.id)
+        .update({'status': 'booked'});
+
+
+
+    // Add to adminShelterDetails
+    await FirebaseFirestore.instance
+        .collection('adminShelterDetails')
+        .add(bookingData);
+
+     // Add notification
+    await _addNotification(currentUser!.uid, shelterData['Location']);
+
+    // Temporarily remove shelter from shelterStream
+   /* await FirebaseFirestore.instance
+        .collection('shelter')
+        .doc(shelterData.id)
+        .update({'status': 'booked'});*/
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Booking request sent successfully')),
+    );
+
+    Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  }
+}
+
+Future<double> _calculateDistance(String location1, String location2) async {
+  try {
+    // Parse the coordinates
+    List<String> coords1 = location1.split(',');
+    List<String> coords2 = location2.split(',');
+    
+    double lat1 = double.parse(coords1[0].trim());
+    double lng1 = double.parse(coords1[1].trim());
+    double lat2 = double.parse(coords2[0].trim());
+    double lng2 = double.parse(coords2[1].trim());
+
+    // Google Maps Directions API request
+    String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+    String url = 'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=$lat1,$lng1'
+        '&destination=$lat2,$lng2'
+        '&mode=driving'
+        '&key=$apiKey';
+
+    final response = await http.get(Uri.parse(url));
+    
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      
+      if (data['status'] != 'OK') {
+        throw Exception('Directions API error: ${data['status']}');
+      }
+
+      if (data['routes'].isEmpty) {
+        throw Exception('No route found');
+      }
+
+      // Get the distance in meters and convert to kilometers
+      var route = data['routes'][0]['legs'][0];
+      var distanceInMeters = route['distance']['value'];
+      return distanceInMeters / 1000.0; // Convert to kilometers
+    } else {
+      throw Exception('Failed to fetch directions: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error calculating distance: $e');
+    return 0.0;
+  }
+}
+
+Future<bool> _requestVolunteer(Map<String, dynamic> bookingData, List<DocumentSnapshot> volunteers, int currentIndex) async {
+  if (currentIndex >= volunteers.length) {
+    return false; // No more volunteers to try
+  }
+
+  DocumentSnapshot volunteerDoc = volunteers[currentIndex];
+  final volunteerId = volunteerDoc['userId'];
+
+  // Calculate distance between volunteer and requester
+  String requesterName = bookingData['requesterDetails']['name'];
+  String volunteerLocation = volunteerDoc['Address'];
+  String requesterLocation = bookingData['requesterDetails']['coordinates'];
+  double distance = await _calculateDistance(volunteerLocation, requesterLocation);
+
+  // Create volunteer request notification
+  final requestRef = await FirebaseFirestore.instance.collection('volunteerRequests').add({
+    'volunteerId': volunteerId,
+    'requesterId': bookingData['requesterDetails']['userId'],
+    'requesterName': bookingData['requesterDetails']['name'],
+    'requesterContact': bookingData['requesterDetails']['contact'],
+    'donorAddress': bookingData['donorDetails']['Address'],
+    'requesterAddress': bookingData['requesterDetails']['Address'],
+    'distance': distance,
+    'timestamp': FieldValue.serverTimestamp(),
+    'status': 'pending',
+    'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 5))),
+    'bookingData': bookingData,
+  });
+
+  // Send notification to volunteer
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': volunteerId,
+    'title': 'New Shelter Request',
+    'message': 'A Person named $requesterName needs your help with shelter service',
+    'type': 'volunteer_request',
+    'requestId': requestRef.id,
+    'timestamp': FieldValue.serverTimestamp(),
+    'expiresIn': 5, // minutes
+  });
+
+  // Wait for volunteer response or timeout
+  try {
+    bool accepted = await _waitForVolunteerResponse(requestRef.id);
+    if (accepted) {
+      // Update booking data with volunteer info
+      bookingData['volunteerDetails'] = {
+        'userId': volunteerDoc['userId'],
+        'name': volunteerDoc['name'],
+        'contact': volunteerDoc['contact'],
+        'address': volunteerDoc['Address'],
+        'age': volunteerDoc['age'],
+        'gender': volunteerDoc['gender'],
+        'availability': volunteerDoc['availability'],
+        'profileImage': volunteerDoc['profileImage'],
+        'email': volunteerDoc['email'],
+
+      };
+      
+      // Notify requester
+      await _notifyRequester(
+        bookingData['requesterDetails']['userId'],
+        volunteerDoc['name'],
+        volunteerDoc['Address']
+      );
+
+      // Notify volunteer about pending coordinator approval
+      await _notifyVolunteer(
+        volunteerId,
+        bookingData['shelterDetails']['houseName'],
+        bookingData['requesterDetails']['name']
+      );
+
+      return true;
+    } else {
+      // Try next volunteer
+      return await _requestVolunteer(bookingData, volunteers, currentIndex + 1);
+    }
+  } catch (e) {
+    print('Error in volunteer request: $e');
+    return false;
+  }
+}
+
+Future<bool> _waitForVolunteerResponse(String requestId) {
+  Completer<bool> completer = Completer();
+  Timer? timeoutTimer;
+  StreamSubscription? subscription;
+
+  // Set timeout timer
+  timeoutTimer = Timer(const Duration(minutes: 5), () {
+    subscription?.cancel();
+    completer.complete(false);
+  });
+
+  // Listen for volunteer response
+  subscription = FirebaseFirestore.instance
+      .collection('volunteerRequests')
+      .doc(requestId)
+      .snapshots()
+      .listen((snapshot) {
+    if (snapshot.data()?['status'] == 'accepted') {
+      timeoutTimer?.cancel();
+      subscription?.cancel();
+      completer.complete(true);
+    } else if (snapshot.data()?['status'] == 'declined') {
+      timeoutTimer?.cancel();
+      subscription?.cancel();
+      completer.complete(false);
+    }
+  });
+
+  return completer.future;
+}
+
+Future<void> _notifyRequester(String requesterId, String volunteerName, String volunteerLocation) async {
+  try {
+    // Convert coordinates to address
+    final coords = volunteerLocation.split(',');
+    if (coords.length != 2) {
+      throw Exception('Invalid coordinates format');
+    }
+
+    double lat = double.parse(coords[0].trim());
+    double lng = double.parse(coords[1].trim());
+
+    // Get address using geocoding
+    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+    String address = "Unknown location";
+    
+    if (placemarks.isNotEmpty) {
+      Placemark place = placemarks[0];
+      address = " ${place.subLocality}, "
+          "${place.locality}";
+    }
+
+    // Send notification with decoded address
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': requesterId,
+      'title': 'Volunteer Assigned- Pending Approval',
+      'message': 'Volunteer $volunteerName has accepted your request. They are located at $address',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_assigned'
+    });
+  } catch (e) {
+    print('Error in _notifyRequester: $e');
+    // Send notification with coordinates if address conversion fails
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': requesterId,
+      'title': 'Volunteer Assigned',
+      'message': 'Volunteer $volunteerName has accepted your request. They are located at $volunteerLocation',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_assigned'
+    });
+  }
+}
+
+Future<void> _notifyVolunteer(String volunteerId, String shelterName, String requesterName) async {
+  try {
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': volunteerId,
+      'title': 'Request Pending Approval',
+      'message': 'Your acceptance to help $requesterName with shelter $shelterName is pending coordinator approval. You will be notified once the coordinator reviews the request.',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_pending_approval'
+    });
+  } catch (e) {
+    print('Error sending volunteer notification: $e');
+  }
+}
+
+Future<void> _addNotification(String userId, String location) async {
+  try {
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': userId,
+      'title': 'Booking Request',
+      'message': 'Your request has been accepted. Waiting for approval by $location Coordinator.',
+      'timestamp': Timestamp.now(),
+      'status': 'pending',
+      'type': 'shelter_booking'
+    });
+  } catch (e) {
+    print('Error adding notification: $e');
+  }
+}
+
    Future<void> _translateContent() async {
     final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
     final targetLanguage = languageProvider.currentLocale.languageCode;
@@ -1963,7 +2453,7 @@ class _PopScreenState extends State<PopScreen> {
                           ),
                           Padding(
                           padding: EdgeInsets.all(8.0),
-                          child: Text("Distance: ${DistanceData().getDistance(widget.shelterData.id).toStringAsFixed(2)} km",
+                          child: Text( "Distance: ${widget.shelterData['distance']?.toStringAsFixed(2) ?? '0.00'} km",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 20.0,
@@ -2098,7 +2588,8 @@ class _PopScreenState extends State<PopScreen> {
                    ),
                  ),
                 ],
-              ),Padding(
+              ),
+              Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Text(languageProvider.translations['description']?? "Description",
                       style: TextStyle(
@@ -2305,6 +2796,7 @@ class _PopScreenState extends State<PopScreen> {
                   ),
                   onTap: () {
                     //Function for booking Resources!
+                    _handleBooking(context, widget.shelterData);
                   },
                 ),
               ),

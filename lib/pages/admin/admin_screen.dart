@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+import 'package:food_delivery_app/pages/admin/admin_Shelter_Screen.dart';
 import 'package:food_delivery_app/pages/admin/admin_notifications.dart';
 import 'package:food_delivery_app/pages/admin/admin_profile_page.dart';
 import 'package:food_delivery_app/pages/settings_page.dart';
@@ -161,16 +162,16 @@ class _AdminScreenState extends State<AdminScreen> with AutomaticKeepAliveClient
               ],
             ),
           ),
-          body: const TabBarView(
+          body: TabBarView(
             children: [
-              Center(child: Text("Shelters Page")),
-              Center(child: Text("Foods Page")),
-              Center(child: Text("Clothes Page")),
-              Center(child: Text("Volunteers Page")),
-              Center(child: Text("Ambulance Page")),
-              Center(child: Text("Medical Assistance Page")),
-              Center(child: Text("Fire and Safety Page")),
-              Center(child: Text("Blood Donors Page")),
+              AdminShelterScreen(userId: widget.userId, location: widget.location),
+              const Center(child: Text("Foods Page")),
+              const Center(child: Text("Clothes Page")),
+              const Center(child: Text("Volunteers Page")),
+              const Center(child: Text("Ambulance Page")),
+              const Center(child: Text("Medical Assistance Page")),
+              const Center(child: Text("Fire and Safety Page")),
+              const Center(child: Text("Blood Donors Page")),
             ],
           ),
         ),

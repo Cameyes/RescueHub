@@ -235,8 +235,8 @@ class _FireAndSafetyPageState extends State<FireAndSafetyPage> with SingleTicker
                             height: 247,
                             decoration: BoxDecoration(
                               color: themeProvider.isDarkMode
-                                  ? (isActive && isAvailable ? Colors.grey[600] : Colors.grey[800])
-                                  : (isActive && isAvailable ? const Color(0xFFDEEDFC) : Colors.grey[300]),
+                                  ? (isActive && isAvailable ? Colors.grey[800]: Colors.grey[800])
+                                  : (isActive && isAvailable ? const Color(0xFFDEEDFC) : const Color(0xFFDEEDFC)),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
@@ -393,44 +393,47 @@ class _FireAndSafetyPageState extends State<FireAndSafetyPage> with SingleTicker
                                           ],
                                         ),
                                         const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.orange.withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                ds["facilityType"],
-                                                style: const TextStyle(
-                                                  color: Colors.deepOrange,
-                                                  fontWeight: FontWeight.bold,
+                                        SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
                                                 ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 30),
-                                            Container(
-                                              width: 100,
-                                              height: 30,
-                                              decoration: BoxDecoration(
-                                                color: const Color.fromARGB(255, 1, 155, 6).withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Center(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.withOpacity(0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
                                                 child: Text(
-                                                  "${ds["experience"]} Years",
-                                                  style: TextStyle(
-                                                    color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                                                  ds["facilityType"],
+                                                  style: const TextStyle(
+                                                    color: Colors.deepOrange,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              const SizedBox(width: 30),
+                                              Container(
+                                                width: 100,
+                                                height: 30,
+                                                decoration: BoxDecoration(
+                                                  color: const Color.fromARGB(255, 1, 155, 6).withOpacity(0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    "${ds["experience"]} Years",
+                                                    style: TextStyle(
+                                                      color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                         const SizedBox(height: 8),
                                         Row(
