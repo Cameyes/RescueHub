@@ -164,6 +164,15 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
                               .doc(widget.userId)
                               .get();
 
+                              DocumentReference docRef = FirebaseFirestore.instance
+                              .collection('adminDetails')
+                              .doc(widget.userId);
+
+                          // Update the status field
+                          await docRef.update({
+                            'verificationStatus': 'successful'
+                          });
+
                           String adminLocation = adminDoc["location"] ?? "Unknown Location";
 
                           Navigator.push(

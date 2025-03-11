@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+import 'package:food_delivery_app/pages/activity_screen.dart';
 import 'package:food_delivery_app/pages/admin/admin_Shelter_Screen.dart';
 import 'package:food_delivery_app/pages/admin/admin_notifications.dart';
 import 'package:food_delivery_app/pages/admin/admin_profile_page.dart';
@@ -176,6 +177,7 @@ class _AdminScreenState extends State<AdminScreen> with AutomaticKeepAliveClient
           ),
         ),
       ),
+      ActivityScreen(userId: widget.userId),
       AdminNotifications(UserId: widget.userId,),
       SettingsPage(),
     ];

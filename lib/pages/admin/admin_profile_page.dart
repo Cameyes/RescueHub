@@ -46,7 +46,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          address = "${place.street}, ${place.subLocality}, "
+          address = " ${place.subLocality}, "
               "${place.locality}, ${place.postalCode}";
         });
       }

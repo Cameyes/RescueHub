@@ -111,6 +111,7 @@ class _AddclothDetailsState extends State<AddclothDetails> {
                           'UserId':widget.userId,
                           'Id':Id,
                         'ClothName':clothController.text,
+                        'ClothNameLower': clothController.text.toLowerCase(),
                         'Name':nameController.text,
                         'HouseName':housenameController.text,
                         'Address':addressController.text,

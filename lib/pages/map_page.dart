@@ -124,7 +124,176 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
       }
     }
  }
+
+ @override
+void dispose() {
+  clothSearchController.dispose();
+  super.dispose();
+}
+
+Map<String, dynamic> filterValues = {
+  'size': [],
+  'count': <int>[],
+  'gender': [],
+};
   
+
+void _showFilterDialog() {
+  final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+  
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Filter Clothes'),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+             ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Size Filter
+                const Text(
+                  'Size',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: ['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((size) {
+                    return FilterChip(
+                      selected: filterValues['size'].contains(size),
+                      label: Text(size),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterValues['size'].add(size);
+                          } else {
+                            filterValues['size'].remove(size);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const Divider(),
+                // Count Filter
+                const Text(
+                  'Count',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+               Wrap(
+                  spacing: 8,
+                  children: List.generate(10, (index) {
+                    int count = index + 1;  // Create count as integer
+                    return FilterChip(
+                      selected: filterValues['count'].contains(count),  // Compare with integer
+                      label: Text(count.toString()),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterValues['count'].add(count);  // Add integer value
+                          } else {
+                            filterValues['count'].remove(count);  // Remove integer value
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const Divider(),
+                // Gender Filter
+                const Text(
+                  'Gender',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: ['Male', 'Female'].map((gender) {
+                    return FilterChip(
+                      selected: filterValues['gender'].contains(gender),
+                      label: Text(gender),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterValues['gender'].add(gender);
+                          } else {
+                            filterValues['gender'].remove(gender);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  filterValues = {
+                    'size': [],
+                    'count': <int>[],
+                    'gender': [],
+                  };
+                });
+              },
+              child: const Text('Clear All'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _applyFilters();
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+void _applyFilters() {
+  setState(() {
+    filteredClothStream = _getFilteredStream(clothSearchController.text);
+  });
+}
+
+Stream<QuerySnapshot>? _getFilteredStream(String searchQuery) {
+  Query query = FirebaseFirestore.instance.collection("cloth");
+
+  // Apply search filter
+  if (searchQuery.isNotEmpty) {
+    query = query.where("ClothNameLower", isGreaterThanOrEqualTo: searchQuery.toLowerCase())
+                .where("ClothNameLower", isLessThan: searchQuery.toLowerCase() + 'z');
+  }
+
+  // Apply size filter
+  if (filterValues['size'].isNotEmpty) {
+    query = query.where("Size", whereIn: filterValues['size']);
+  }
+  // Apply count filter
+  if (filterValues['count'].isNotEmpty) {
+    query = query.where("Count", whereIn: filterValues['count']);
+  }
+
+  // Apply gender filter
+  if (filterValues['gender'].isNotEmpty) {
+    query = query.where("Gender", whereIn: filterValues['gender']);
+  }
+
+  return query.snapshots();
+}
 
   void navigateBottomBar(int index) {
     setState(() {
@@ -150,11 +319,16 @@ class _MapPageState extends State<MapPage> with AutomaticKeepAliveClientMixin {
         .map((future)=>future as DocumentSnapshot<Map<String,dynamic>>);
   }
 
+  TextEditingController clothSearchController = TextEditingController();
+  Stream? filteredClothStream;
+
   
 
   @override
   void initState() {
     super.initState();
+
+    filteredClothStream = clothStream;
     
     selectedLoc = widget.selectedLoc;
     initializeUserProfileStream();
@@ -1387,418 +1561,481 @@ Widget allfoodDetails(String userId){
     final themeProvider = Provider.of<ThemeProvider>(context);
     return Stack(
       children: [
-          StreamBuilder(
-          stream: clothStream, 
-          builder: (context, AsyncSnapshot snapshot){
-            return snapshot.hasData
-            ?ListView.builder(
-              itemCount: snapshot.data.docs.length,
-              itemBuilder: (context,index){
-                DocumentSnapshot ds=snapshot.data.docs[index];
-                return Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Slidable(
-                    endActionPane: ds["UserId"]==userId
-                    ?ActionPane(
-                      motion: const ScrollMotion(),
-                      extentRatio: 0.25,
-                      children: [
-                        CustomSlidableAction(
-                          backgroundColor:themeProvider.isDarkMode?Colors.grey.shade400: Colors.red,
-                          onPressed: (context) async{
-                            final clothId=ds.id;
-                            final confirmation=await showDialog(
-                              context: context,
-                              builder:(BuildContext context){
-                                return AlertDialog(
-                                  title: const Text("Confirm Deletion"),
-                                  content: const Text("Are you Sure you want to Delete this Cloth Item?"),
-                                  actions: [
-                                    TextButton(
-                                          child: const Text("Cancel"),
-                                          onPressed: () => Navigator.of(context).pop(false),
-                                        ),
-                                        TextButton(
-                                          child: const Text("Delete"),
-                                          onPressed: () => Navigator.of(context).pop(true),
-                                        ),
-                                  ],
-                                );
-                              }
-                            );
+          Column(
+            children: [
+              //Search Box for Searching
 
-                             if (confirmation == true) {
-                                  try {
-                                    await DatabaseMethods().deleteclothDetail(clothId);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Cloth Item deleted successfully")),
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text("Error deleting shelter: $e")),
-                                    );
-                                  }
-                                }
-                          }, 
-                          child:  Icon(
-                                Icons.delete,
-                                color:themeProvider.isDarkMode?Colors.black: Colors.white,
-                                size: 30,
-                              ),
-                            )
-                      ],
-                    ):null,
-                    child: GestureDetector(
-                      child: Material(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color:themeProvider.isDarkMode?Colors.grey[600] : Color(
-                                      0xFFDEEDFC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          width: double.infinity,
-                          height: 200,
-                          child: Row(
+                Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: clothSearchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search clothes...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: themeProvider.isDarkMode 
+                          ? Colors.grey[700] 
+                          : Colors.grey[200],
+                    ),
+                    onChanged: (value) {
+                      // Update the stream based on search query
+                      setState(() {
+                        if (value.isEmpty) {
+                          filteredClothStream = clothStream;
+                        } else {
+                          filteredClothStream = FirebaseFirestore.instance
+                              .collection("cloth")
+                              .where("ClothNameLower", isGreaterThanOrEqualTo: value.toLowerCase())
+                              .where("ClothNameLower", isLessThan: value.toLowerCase() + 'z')
+                              .snapshots();
+                        }
+                      });
+                    },
+                  ),
+                ),
+
+              const SizedBox(width: 8),
+
+               ElevatedButton.icon(
+                  onPressed: () {
+                    _showFilterDialog();
+                  },
+                  icon: const Icon(Icons.filter_list),
+                  label: const Text('Filter'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: themeProvider.isDarkMode 
+                        ? Colors.grey[800] 
+                        : Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                  ),
+                ),
+
+              ],
+            ),
+          ),
+              Expanded(
+                child: StreamBuilder(
+                stream: filteredClothStream ?? clothStream,
+                builder: (context, AsyncSnapshot snapshot){
+                  return snapshot.hasData
+                  ?ListView.builder(
+                    itemCount: snapshot.data.docs.length,
+                    itemBuilder: (context,index){
+                      DocumentSnapshot ds=snapshot.data.docs[index];
+                      return Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Slidable(
+                          endActionPane: ds["UserId"]==userId
+                          ?ActionPane(
+                            motion: const ScrollMotion(),
+                            extentRatio: 0.25,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey,
-                                    //shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white)
-                                  ),
-                                  child: ClipRRect(
-                                    child: ds["Images"][0].isNotEmpty
-                                      ? (ds["Images"][0].startsWith('/data') 
-                                                  ? Image.file(
-                                        File(ds["Images"][0]),
-                                        fit: BoxFit.fill,
+                              CustomSlidableAction(
+                                backgroundColor:themeProvider.isDarkMode?Colors.grey.shade400: Colors.red,
+                                onPressed: (context) async{
+                                  final clothId=ds.id;
+                                  final confirmation=await showDialog(
+                                    context: context,
+                                    builder:(BuildContext context){
+                                      return AlertDialog(
+                                        title: const Text("Confirm Deletion"),
+                                        content: const Text("Are you Sure you want to Delete this Cloth Item?"),
+                                        actions: [
+                                          TextButton(
+                                                child: const Text("Cancel"),
+                                                onPressed: () => Navigator.of(context).pop(false),
+                                              ),
+                                              TextButton(
+                                                child: const Text("Delete"),
+                                                onPressed: () => Navigator.of(context).pop(true),
+                                              ),
+                                        ],
+                                      );
+                                    }
+                                  );
+                
+                                   if (confirmation == true) {
+                                        try {
+                                          await DatabaseMethods().deleteclothDetail(clothId);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text("Cloth Item deleted successfully")),
+                                          );
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text("Error deleting shelter: $e")),
+                                          );
+                                        }
+                                      }
+                                }, 
+                                child:  Icon(
+                                      Icons.delete,
+                                      color:themeProvider.isDarkMode?Colors.black: Colors.white,
+                                      size: 30,
+                                    ),
+                                  )
+                            ],
+                          ):null,
+                          child: GestureDetector(
+                            child: Material(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color:themeProvider.isDarkMode?Colors.grey[600] : Color(
+                                            0xFFDEEDFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                width: double.infinity,
+                                height: 200,
+                                child: Row(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Container(
                                         width: 100,
                                         height: 100,
-                                          )
-                                        : Image.network(
-                                          ds["Images"][0],
-                                          fit: BoxFit.fill,
-                                          width: 100,
-                                          height: 100,
-                                        ))
-                                      : const Icon(
-                                      Icons.image,
-                                      color: Colors.white,
-                                      size: 50,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey,
+                                          //shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white)
+                                        ),
+                                        child: ClipRRect(
+                                          child: ds["Images"][0].isNotEmpty
+                                            ? (ds["Images"][0].startsWith('/data') 
+                                                        ? Image.file(
+                                              File(ds["Images"][0]),
+                                              fit: BoxFit.fill,
+                                              width: 100,
+                                              height: 100,
+                                                )
+                                              : Image.network(
+                                                ds["Images"][0],
+                                                fit: BoxFit.fill,
+                                                width: 100,
+                                                height: 100,
+                                              ))
+                                            : const Icon(
+                                            Icons.image,
+                                            color: Colors.white,
+                                            size: 50,
+                                            ),
+                                          ),
                                       ),
                                     ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 20.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 10,),
-                                    Row(
-                                      children: [
-                                         Text("${ds["ClothName"]}",
-                                        style: TextStyle(
-                                          color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),),
-                                         const SizedBox(width: 15,),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: ds["Gender"] == "Male"
-                                              ? Colors.blue
-                                              : ds["Gender"] == "Female"
-                                            ? const Color.fromARGB(255, 236, 52, 113)
-                                            : Colors.grey,
-                                            borderRadius: BorderRadius.circular(15),
-                                            border: Border.all(color: Colors.white)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 20.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 10,),
+                                          Row(
+                                            children: [
+                                               Text("${ds["ClothName"]}",
+                                              style: TextStyle(
+                                                color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),),
+                                               const SizedBox(width: 15,),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: ds["Gender"] == "Male"
+                                                    ? Colors.blue
+                                                    : ds["Gender"] == "Female"
+                                                  ? const Color.fromARGB(255, 236, 52, 113)
+                                                  : Colors.grey,
+                                                  borderRadius: BorderRadius.circular(15),
+                                                  border: Border.all(color: Colors.white)
+                                                ),
+                                               width: 70,
+                                                child:  Center(
+                                                  child: Text("${ds["Gender"]}",
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                         width: 70,
-                                          child:  Center(
-                                            child: Text("${ds["Gender"]}",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
+                                          const SizedBox(height: 5,),
+                                           Text(
+                                            "${ds["HouseName"]}",
+                                            style:  TextStyle(
+                                              color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                              fontSize: 18.0,
                                               fontWeight: FontWeight.bold,
-                                            ),),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 5,),
-                                     Text(
-                                      "${ds["HouseName"]}",
-                                      style:  TextStyle(
-                                        color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      "${ds["Address"]}",
-                                      style:  TextStyle(
-                                        color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          "Size : ${ds["Size"]}",
-                                          style:  TextStyle(
-                                            color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                            fontSize: 18.0,
-                                            fontWeight: FontWeight.bold,
+                                          Text(
+                                            "${ds["Address"]}",
+                                            style:  TextStyle(
+                                              color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                              fontSize: 18.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 10,),
-                                            FutureBuilder(
-                                              future: FirebaseFirestore.instance
-                                              .collection('cloth')
-                                              .doc(ds.id)
-                                              .collection('reviews')
-                                              .get(), 
-                                              builder: (
-                                                context,
-                                                AsyncSnapshot<QuerySnapshot>
-                                                reviewSnapshot){
-                                                  if(reviewSnapshot.connectionState==ConnectionState.waiting){
-                                                    return const Text(
-                                                      "Loading...",
-                                                      style: TextStyle(
-                                                        color: Colors.black,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );
-                                                  }
-
-                                                  if(reviewSnapshot.hasData){
-                                                    final reviews=reviewSnapshot.data!.docs;
-                                                    if(reviews.isEmpty){
-                                                      return  Text(
-                                                        "(No Reviews)",
-                                                        style: TextStyle(
-                                                          color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                          fontSize: 16,
-                                                        ),
-                                                      );
-                                                    }
-                                                    
-                                                    
-                                                  double avgRating = reviews
-                                                          .map((doc) =>
-                                                              doc['rating'] as int)
-                                                          .reduce((a, b) => a + b) /
-                                                      reviews.length;
-
-                                                      return Row(
-                                                        children: [
-                                                          Text(
-                                                            avgRating.toStringAsFixed(1),
-                                                            style:  TextStyle(
-                                                             color:themeProvider.isDarkMode?Colors.white: Colors.orange,
-                                                             fontSize: 16,
-                                                             fontWeight: FontWeight.bold,                  
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 5,),
-                                                          Row(
-                                                            children: List.generate(5, (index){
-                                                              if(index <avgRating.floor())
-                                                              {
-                                                                return  Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: 16,);                                                        
-                                                              }
-                                                              else if (index < avgRating && avgRating - index >= 0.5) {
-                                                                return  Icon(Icons.star_half, color:themeProvider.isDarkMode?Colors.white: Colors.orange, size: 16);
-                                                              } 
-                                                              else {
-                                                                  return const Icon(Icons.star_border, color: Colors.grey, size: 16);
-                                                                }
-                                                            })
-                                                          ),
-                                                          Text("(${reviews.length})",
-                                                          style:  TextStyle(
-                                                            color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                            fontSize: 16,
-                                                          ),),
-                                                        ],             
-                                                      );
-
-                                                  }
-
-                                                    return  Text(
-                                                      "(No Reviews)",
-                                                      style: TextStyle(
-                                                        color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );       
-                                                })
-                                      ],
-                                    ),
-                                     Text("For : ${ds["Count"]} Persons",
-                                    style:  TextStyle(
-                                        color:  themeProvider.isDarkMode?Colors.white: Colors.black,
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 5,),
-                                    SizedBox(
-                                      height: 40,
-                                      width: 40,
-                                      child: FloatingActionButton(
-                                        backgroundColor: themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),                                
-                                        elevation: 5,
-                                        child: const Icon(
-                                          Icons.directions,
-                                          size: 30,
-                                          color: Colors.white,
-                                        ),
-                                        onPressed: () async {
-                                          // Logic to open Google Maps
-                                           try {
-                                                        // Fetch shelter coordinates
-                                                        String addressString = ds['Address'];
-                                                        List<String> latLng = addressString.split(',');
-                                                        double shelterLat = double.parse(latLng[0].trim());
-                                                        double shelterLng = double.parse(latLng[1].trim());
-
-                                                        // Fetch user coordinates from Profile collection
-                                                        DocumentSnapshot userProfile = await FirebaseFirestore.instance
-                                                            .collection("Profile")
-                                                            .doc(userId)
-                                                            .get();
-                                                        String locationString = userProfile["location"];
-                                                        List<String> userlatLng = locationString.split(',');
-                                                        double locationLat = double.parse(userlatLng[0].trim());
-                                                        double locationLng = double.parse(userlatLng[1].trim());
-
-                                                        // Get the real distance using Google Directions API
-                                                        String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc'; // Replace with your actual API key
-                                                        String url = 'https://maps.googleapis.com/maps/api/directions/json'
-                                                            '?origin=$locationLat,$locationLng'
-                                                            '&destination=$shelterLat,$shelterLng'
-                                                            '&mode=driving' // Specify travel mode
-                                                            '&key=$apiKey';
-
-                                                        final response = await http.get(Uri.parse(url));
-                                                        if (response.statusCode == 200) {
-                                                          Map<String, dynamic> data = json.decode(response.body);
-                                                          
-                                                          if (data['status'] != 'OK') {
-                                                            throw Exception('Directions API error: ${data['status']}');
-                                                          }
-
-                                                          if (data['routes'].isEmpty) {
-                                                            throw Exception('No route found');
-                                                          }
-
-                                                          // Get the actual road distance from the first route
-                                                          var route = data['routes'][0]['legs'][0];
-                                                          var distanceInMeters = route['distance']['value'];
-                                                          var distanceText = route['distance']['text'];
-                                                          var durationText = route['duration']['text'];
-                                                          var distanceInKm = distanceInMeters / 1000.0;
-
-                                                          // Get the polyline points for the route
-                                                          String encodedPoints = data['routes'][0]['overview_polyline']['points'];
-                                                          
-                                                          // Navigate to the map screen with all route information
-                                                          Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                              builder: (context) => MapScreen(
-                                                                shelterLat: shelterLat,
-                                                                shelterLng: shelterLng,
-                                                                userLat: locationLat,
-                                                                userLng: locationLng,
-                                                                distance: distanceInKm,
-                                                                distanceText: distanceText,
-                                                                durationText: durationText,
-                                                                encodedPolyline: encodedPoints,
-                                                                shelterId: ds["Id"],
-                                                              ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                "Size : ${ds["Size"]}",
+                                                style:  TextStyle(
+                                                  color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                  fontSize: 18.0,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10,),
+                                                  FutureBuilder(
+                                                    future: FirebaseFirestore.instance
+                                                    .collection('cloth')
+                                                    .doc(ds.id)
+                                                    .collection('reviews')
+                                                    .get(), 
+                                                    builder: (
+                                                      context,
+                                                      AsyncSnapshot<QuerySnapshot>
+                                                      reviewSnapshot){
+                                                        if(reviewSnapshot.connectionState==ConnectionState.waiting){
+                                                          return const Text(
+                                                            "Loading...",
+                                                            style: TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: 16,
                                                             ),
                                                           );
-                                                        } else {
-                                                          throw Exception('Failed to fetch directions: ${response.statusCode}');
                                                         }
-                                                      } catch (e) {
-                                                        print('Error: $e');
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
-                                                        );
-                                                      }
-                                        },
+                
+                                                        if(reviewSnapshot.hasData){
+                                                          final reviews=reviewSnapshot.data!.docs;
+                                                          if(reviews.isEmpty){
+                                                            return  Text(
+                                                              "(No Reviews)",
+                                                              style: TextStyle(
+                                                                color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                                fontSize: 16,
+                                                              ),
+                                                            );
+                                                          }
+                                                          
+                                                          
+                                                        double avgRating = reviews
+                                                                .map((doc) =>
+                                                                    doc['rating'] as int)
+                                                                .reduce((a, b) => a + b) /
+                                                            reviews.length;
+                
+                                                            return Row(
+                                                              children: [
+                                                                Text(
+                                                                  avgRating.toStringAsFixed(1),
+                                                                  style:  TextStyle(
+                                                                   color:themeProvider.isDarkMode?Colors.white: Colors.orange,
+                                                                   fontSize: 16,
+                                                                   fontWeight: FontWeight.bold,                  
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 5,),
+                                                                Row(
+                                                                  children: List.generate(5, (index){
+                                                                    if(index <avgRating.floor())
+                                                                    {
+                                                                      return  Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: 16,);                                                        
+                                                                    }
+                                                                    else if (index < avgRating && avgRating - index >= 0.5) {
+                                                                      return  Icon(Icons.star_half, color:themeProvider.isDarkMode?Colors.white: Colors.orange, size: 16);
+                                                                    } 
+                                                                    else {
+                                                                        return const Icon(Icons.star_border, color: Colors.grey, size: 16);
+                                                                      }
+                                                                  })
+                                                                ),
+                                                                Text("(${reviews.length})",
+                                                                style:  TextStyle(
+                                                                  color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                                  fontSize: 16,
+                                                                ),),
+                                                              ],             
+                                                            );
+                
+                                                        }
+                
+                                                          return  Text(
+                                                            "(No Reviews)",
+                                                            style: TextStyle(
+                                                              color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                              fontSize: 16,
+                                                            ),
+                                                          );       
+                                                      })
+                                            ],
+                                          ),
+                                           Text("For : ${ds["Count"]} Persons",
+                                          style:  TextStyle(
+                                              color:  themeProvider.isDarkMode?Colors.white: Colors.black,
+                                              fontSize: 18.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          )
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
-                                    
-                                    const SizedBox(height: 55,),
-                                    GestureDetector(
-                                          child: ds['UserId']==userId
-                                          ? Container(
+                                    const Spacer(),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 5,),
+                                          SizedBox(
                                             height: 40,
                                             width: 40,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: const Icon(
-                                              Icons.edit,
-                                              color: Colors.black,
-                                            ),
-                                          ):const SizedBox.shrink(),                                        
-                                          onTap: () {
-                                            // Logic to open Edit Screen
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => EditClothDetails
-                                                (clothData:ds ,
-                                                 userId: userId)
+                                            child: FloatingActionButton(
+                                              backgroundColor: themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),                                
+                                              elevation: 5,
+                                              child: const Icon(
+                                                Icons.directions,
+                                                size: 30,
+                                                color: Colors.white,
                                               ),
-                                            );
-                                          },
+                                              onPressed: () async {
+                                                // Logic to open Google Maps
+                                                 try {
+                                                              // Fetch shelter coordinates
+                                                              String addressString = ds['Address'];
+                                                              List<String> latLng = addressString.split(',');
+                                                              double shelterLat = double.parse(latLng[0].trim());
+                                                              double shelterLng = double.parse(latLng[1].trim());
+                
+                                                              // Fetch user coordinates from Profile collection
+                                                              DocumentSnapshot userProfile = await FirebaseFirestore.instance
+                                                                  .collection("Profile")
+                                                                  .doc(userId)
+                                                                  .get();
+                                                              String locationString = userProfile["location"];
+                                                              List<String> userlatLng = locationString.split(',');
+                                                              double locationLat = double.parse(userlatLng[0].trim());
+                                                              double locationLng = double.parse(userlatLng[1].trim());
+                
+                                                              // Get the real distance using Google Directions API
+                                                              String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc'; // Replace with your actual API key
+                                                              String url = 'https://maps.googleapis.com/maps/api/directions/json'
+                                                                  '?origin=$locationLat,$locationLng'
+                                                                  '&destination=$shelterLat,$shelterLng'
+                                                                  '&mode=driving' // Specify travel mode
+                                                                  '&key=$apiKey';
+                
+                                                              final response = await http.get(Uri.parse(url));
+                                                              if (response.statusCode == 200) {
+                                                                Map<String, dynamic> data = json.decode(response.body);
+                                                                
+                                                                if (data['status'] != 'OK') {
+                                                                  throw Exception('Directions API error: ${data['status']}');
+                                                                }
+                
+                                                                if (data['routes'].isEmpty) {
+                                                                  throw Exception('No route found');
+                                                                }
+                
+                                                                // Get the actual road distance from the first route
+                                                                var route = data['routes'][0]['legs'][0];
+                                                                var distanceInMeters = route['distance']['value'];
+                                                                var distanceText = route['distance']['text'];
+                                                                var durationText = route['duration']['text'];
+                                                                var distanceInKm = distanceInMeters / 1000.0;
+                
+                                                                // Get the polyline points for the route
+                                                                String encodedPoints = data['routes'][0]['overview_polyline']['points'];
+                                                                
+                                                                // Navigate to the map screen with all route information
+                                                                Navigator.push(
+                                                                  context,
+                                                                  MaterialPageRoute(
+                                                                    builder: (context) => MapScreen(
+                                                                      shelterLat: shelterLat,
+                                                                      shelterLng: shelterLng,
+                                                                      userLat: locationLat,
+                                                                      userLng: locationLng,
+                                                                      distance: distanceInKm,
+                                                                      distanceText: distanceText,
+                                                                      durationText: durationText,
+                                                                      encodedPolyline: encodedPoints,
+                                                                      shelterId: ds["Id"],
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              } else {
+                                                                throw Exception('Failed to fetch directions: ${response.statusCode}');
+                                                              }
+                                                            } catch (e) {
+                                                              print('Error: $e');
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
+                                                              );
+                                                            }
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 20),
                                           
-                                        ),
+                                          const SizedBox(height: 55,),
+                                          GestureDetector(
+                                                child: ds['UserId']==userId
+                                                ? Container(
+                                                  height: 40,
+                                                  width: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.black,
+                                                  ),
+                                                ):const SizedBox.shrink(),                                        
+                                                onTap: () {
+                                                  // Logic to open Edit Screen
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => EditClothDetails
+                                                      (clothData:ds ,
+                                                       userId: userId)
+                                                    ),
+                                                  );
+                                                },
+                                                
+                                              ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
-                            ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PopclothScreen(clothData: ds,),//passing snapShot Details to Another Screen=>Pop Screen Here!
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PopclothScreen(clothData: ds,),//passing snapShot Details to Another Screen=>Pop Screen Here!
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              }):Container();
-          }),
+                      );
+                    }):Container();
+                }),
+              ),
+            ],
+          ),
           //Add Icon in bottom-left corner
           Positioned(bottom: 20,
           right: 20,
@@ -2020,6 +2257,7 @@ Future<void> _handleBooking(BuildContext context, DocumentSnapshot shelterData) 
         'fromDate': dates['fromDate'],
         'toDate': dates['toDate'],
       },
+      'shelterId':shelterData['Id'],
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
       'district':shelterData['Location'],
@@ -3277,6 +3515,7 @@ class _PopclothScreenState extends State<PopclothScreen> {
   @override
   void initState() {
     super.initState();
+     
     _getAddress();
   }
 

@@ -60,11 +60,11 @@ Future<void> _handleApproval(Map<String, dynamic> shelterData, String shelterId)
     });
 
     // Get coordinator name
-    final coordinatorDoc = await FirebaseFirestore.instance
+    /*final coordinatorDoc = await FirebaseFirestore.instance
         .collection('Profile')
         .doc(widget.userId)
         .get();
-    final coordinatorName = coordinatorDoc.data()?['Name'] ?? 'A coordinator';
+    final coordinatorName = coordinatorDoc.data()?['Name'] ?? 'A coordinator';*/
 
     // Update volunteer status to busy
     await FirebaseFirestore.instance
@@ -150,21 +150,7 @@ Future<void> _handleApproval(Map<String, dynamic> shelterData, String shelterId)
       'targetCoordinates':shelterData['donorDetails']['coordinates'],
     });
 
-    // Send notifications to all admins
-    final adminsSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('role', isEqualTo: 'Admin')
-        .get();
-
-    for (var adminDoc in adminsSnapshot.docs) {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'userId': adminDoc.id,
-        'title': 'Shelter Approval Update',
-        'message': '$coordinatorName has approved shelter posted by ${shelterData['donorDetails']['name']} for ${shelterData['requesterDetails']['name']}',
-        'timestamp': FieldValue.serverTimestamp(),
-        'type': 'admin_shelter_approval'
-      });
-    }
+        
 
     // Remove the request from adminShelterDetails
     await FirebaseFirestore.instance
@@ -200,6 +186,41 @@ Future<void> _handleApproval(Map<String, dynamic> shelterData, String shelterId)
       gravity: ToastGravity.BOTTOM,
     );
   }
+
+
+// Send notifications to all admins in the same location
+final adminsSnapshot = await FirebaseFirestore.instance
+    .collection('adminDetails')
+    .where('location', isEqualTo: widget.location)  // Filter by location
+    .get();
+
+// Get the current admin's name
+final currentAdminDoc = await FirebaseFirestore.instance
+    .collection('adminDetails')
+    .doc(widget.userId)
+    .get();
+final currentAdminName = currentAdminDoc.data()?['name'] ?? 'An admin';
+
+// Get current time
+final now = DateTime.now();
+final formattedTime = DateFormat('HH:mm').format(now);
+
+// Send notification to each admin in the location
+for (var adminDoc in adminsSnapshot.docs) {
+  // Skip sending notification to the admin who approved
+  if (adminDoc.id != widget.userId) {
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': adminDoc.id,  // Send to each admin's ID
+      'title': 'Shelter Approval Update',
+      'message': '$currentAdminName has approved shelter request at $formattedTime\nRequester: ${shelterData['requesterDetails']['name']}\nDonor: ${shelterData['donorDetails']['name']}',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'admin_shelter_approval',
+      'shelterId': shelterId,
+      'approvedBy': widget.userId,
+      'location': widget.location
+    });
+  }
+}
 }
 
 // Add this method to handle rejection
@@ -1359,9 +1380,9 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                     ),
                                   ),
                                   const SizedBox(width: 5,),
-                                  Text(shelterData['shelterDetails']['Date'] is Timestamp 
-                                        ? DateFormat('MMM dd, yyyy').format((shelterData['shelterDetails']['Date'] as Timestamp).toDate())
-                                        : shelterData['shelterDetails']['Date'].toString(),
+                                  Text(shelterData['shelterDetails']['date'] is Timestamp 
+                                        ? DateFormat('MMM dd, yyyy').format((shelterData['shelterDetails']['date'] as Timestamp).toDate())
+                                        : shelterData['shelterDetails']['date'].toString(),
                                     style: TextStyle(
                                       color: const Color.fromARGB(255, 39, 39, 39),
                                       fontSize: 18,

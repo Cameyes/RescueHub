@@ -327,7 +327,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Show this code to your volunteer when they arrive',
+          'Show the code to your volunteer when they arrive',
           style: TextStyle(
             color: Colors.grey.shade600,
             fontSize: 14,
@@ -483,43 +483,10 @@ else if (notification['type'] == 'volunteer_pickup_confirmed') {
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           try {
-                            // Decode address for the notification
-                            final decodedAddress = await _getDecodedAddress(notification['targetCoordinates']);
-                            
-                           
-                            
-                            // Send completion notification to requester
-                            await FirebaseFirestore.instance.collection('notifications').add({
-                              'userId': notification['requesterId'],
-                              'title': 'Destination Reached',
-                              'message': 'You have been volunteered safely to ${notification['shelterName']}, $decodedAddress',
-                              'type': 'volunteer_completed',
-                              'volunteerId': notification['volunteerId'],
-                              'requesterId': notification['requesterId'],
-                              'shelterName': notification['shelterName'],
-                              'coordinates': notification['coordinates'],
-                              'targetCoordinates': notification['targetCoordinates'],
-                              'timestamp': FieldValue.serverTimestamp(),
-                            });
-
-                            // Remove current notification
-                            if (notification['notificationId'] != null) {
-                              await FirebaseFirestore.instance
-                                  .collection('notifications')
-                                  .doc(notification['notificationId'])
-                                  .delete();
-                            }
-
-                            // Show success toast
-                            Fluttertoast.showToast(
-                              msg: "Destination reached successfully!",
-                              backgroundColor: Colors.green,
-                              textColor: Colors.white,
-                              gravity: ToastGravity.BOTTOM,
-                              toastLength: Toast.LENGTH_LONG,
-                            );
-
-                            
+                             await _markDestinationReached(notification);
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
                           } catch (e) {
                             print('Error marking destination reached: $e');
                             if (context.mounted) {
@@ -685,6 +652,68 @@ else if (notification['type'] == 'volunteer_completed') {
     }
   }
 
+  Future<void> _markDestinationReached(Map<String, dynamic> notification) async {
+  try {
+    final decodedAddress = await _getDecodedAddress(notification['targetCoordinates']);
+
+    // Add activity data using the data from notification
+    await FirebaseFirestore.instance
+        .collection('userActivities')
+        .doc(notification['requesterId'])
+        .set({
+          'type': 'shelter_stay',
+          'shelterName': notification['shelterName'],
+          'shelterAddress': decodedAddress,
+          'startDate': FieldValue.serverTimestamp(),
+          'shelterId': notification['shelterId'],
+          'expectedEndDate': notification['stayEndDate'], // Use from notification
+          'status': 'active',
+          'photos': notification['shelterPhotos'], // Use from notification
+        });
+
+        // Send completion notification to requester
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': notification['requesterId'],
+      'title': 'Destination Reached',
+      'message': 'You have been volunteered safely to ${notification['shelterName']}, $decodedAddress',
+      'type': 'volunteer_completed',
+      'volunteerId': notification['volunteerId'],
+      'requesterId': notification['requesterId'],
+      'shelterName': notification['shelterName'],
+      'coordinates': notification['coordinates'],
+      'targetCoordinates': notification['targetCoordinates'],
+      'timestamp': FieldValue.serverTimestamp(),
+    });        
+
+    // Delete all tracking notifications
+    final trackingNotifications = await FirebaseFirestore.instance
+        .collection('notifications')
+        .where('shelterId', isEqualTo: notification['shelterId'])
+        .where('type', whereIn: ['shelter_approved', 'volunteer_pickup_confirmed'])
+        .get();
+
+         // Delete notifications in batch
+    final batch = FirebaseFirestore.instance.batch();
+    for (var doc in trackingNotifications.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+     // Show success toast
+    Fluttertoast.showToast(
+      msg: "Destination reached successfully!",
+      backgroundColor: Colors.green,
+      textColor: Colors.white,
+      gravity: ToastGravity.BOTTOM,
+      toastLength: Toast.LENGTH_LONG,
+    );
+  } catch (e) {
+    debugPrint('Error marking destination reached: $e');
+    rethrow;
+  }
+}
+
+
   Future<String> _getDecodedAddress(String coordinates) async {
   try {
     final coords = coordinates.split(',');
@@ -700,6 +729,8 @@ else if (notification['type'] == 'volunteer_completed') {
     return "Location unavailable";
   }
 }
+
+
 
 Future<void> _removeExistingNotifications(String requesterId, String volunteerId) async {
   final batch = FirebaseFirestore.instance.batch();
@@ -751,6 +782,8 @@ Future<void> _sendUpdatedNotifications(
     'volunteerId': shelterData['volunteerDetails']['userId'], // Add this
     'requesterId': shelterData['requesterDetails']['userId'], // Add this
     'shelterName': shelterName, // Add this
+    'stayEndDate': shelterData['stayPeriod']['toDate'],
+    'shelterPhotos': shelterData['shelterDetails']['images'],
     'timestamp': FieldValue.serverTimestamp(),
   });
 }
