@@ -398,6 +398,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       'Contact': contactController.text,
       'email': emailController.text,
       'location': locationController.text,
+      'userId': widget.userId,
     };
 
     await FirebaseFirestore.instance

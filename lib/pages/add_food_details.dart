@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_constructors
 
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:random_string/random_string.dart';
+import 'package:http/http.dart' as http;
 
 class AddfoodDetails extends StatefulWidget {
   final String userId;
@@ -45,6 +47,13 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
 
   //Variable for Form Creation
   final _formKey = GlobalKey<FormState>();
+
+   double? distance;
+String? distanceText;
+String? durationText;
+
+String selectedGender="Male";
+
   
   
   Future<void> pickExpiryDate(BuildContext context) async{
@@ -132,6 +141,7 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
                         'UserId':widget.userId,
                         'Id':Id,
                         'FoodName':foodController.text,
+                        'FoodNameLower':foodController.text.toLowerCase(),
                         'Name':nameController.text,
                         'HouseName':housenameController.text,
                         'Address':addressController.text,
@@ -144,6 +154,11 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
                         'Description':descriptionController.text,
                         'Date':formattedDate, //Add date
                         'Time':formattedTime, //Add time
+                        'Age':int.parse(ageController.text),
+                        'Gender':selectedGender,
+                        'status':"not booked",
+                        'distance': distance,  // Add distance
+                        'distanceText': distanceText,
       };
 
       // Save data to Firestore
@@ -258,6 +273,91 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
                           },
                 ),
                 const SizedBox(height: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          "Age",
+                          style: TextStyle(
+                            color: themeProvider.isDarkMode ? Colors.white : Colors.grey[900],
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 180),
+                        Text(
+                          "Gender",
+                          style: TextStyle(
+                            color: themeProvider.isDarkMode ? Colors.white : Colors.grey[900],
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          child: TextFormField(
+                            controller: ageController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'age',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'This field is mandatory';
+                              }
+                              if (int.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 30),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Radio<String>(
+                                  value: "Male",
+                                  groupValue: selectedGender,
+                                  onChanged: (String? value) {
+                                    setState(() {
+                                      selectedGender = value!;
+                                    });
+                                  },
+                                ),
+                                const Text("Male"),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Radio<String>(
+                                  value: "Female",
+                                  groupValue: selectedGender,
+                                  onChanged: (String? value) {
+                                    setState(() {
+                                      selectedGender = value!;
+                                    });
+                                  },
+                                ),
+                                const Text("Female"),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20,),
                 Text("House Name",
                 style: TextStyle(
                   color:themeProvider.isDarkMode ? Colors.white : Colors.grey[900],
@@ -334,11 +434,67 @@ class _AddfoodDetailsState extends State<AddfoodDetails> {
                                 addressController.text =
                                     "${selectedLocation.latitude}, ${selectedLocation.longitude}";
                               });
+                               try {
+      String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+      String url = 'https://maps.googleapis.com/maps/api/directions/json'
+          '?origin=${widget.Loc}'  // Assuming widget.Loc is in "lat,lng" format
+          '&destination=${selectedLocation.latitude},${selectedLocation.longitude}'
+          '&mode=driving'
+          '&key=$apiKey';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        
+        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+          var route = data['routes'][0]['legs'][0];
+          var distanceInMeters = route['distance']['value'];
+          setState(() {
+            distanceText = route['distance']['text'];
+            durationText = route['duration']['text'];
+            distance = distanceInMeters / 1000.0;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error calculating distance: $e');
+    }
                             }
                        },
                      )
                    ],
                  ),
+                  const SizedBox(height: 10),
+                 if (distance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Text(
+                            "Distance: ",
+                            style: TextStyle(
+                              color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                              fontSize: 18,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Text(
+                              distanceText ?? '${distance!.toStringAsFixed(2)} km',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 const SizedBox(height: 20),
                 Text(
                   "Size of Affordable Occupants",

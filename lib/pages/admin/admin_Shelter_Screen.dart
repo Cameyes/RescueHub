@@ -1358,7 +1358,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: Colors.blue.shade100,
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(12),
                             bottomRight: Radius.circular(12),
@@ -1374,7 +1374,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                   Text(
                                     "Created On : ",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: const Color.fromARGB(255, 69, 63, 249),
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1393,7 +1393,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                               const SizedBox(height: 10),
                               Text("Location",
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: const Color.fromARGB(255, 69, 63, 249),
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1403,8 +1403,9 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                 children: [
                                   Text("Distance : ",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: const Color.fromARGB(255, 69, 63, 249),
                                       fontSize: 16,
+                                      fontWeight: FontWeight.bold
                                     ),
                                   ),
                                   const SizedBox(width: 5,),
@@ -1418,8 +1419,9 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                       padding: const EdgeInsets.all(8.0),
                                       child: Text("${shelterData['distance']} km",
                                         style: TextStyle(
-                                          color: Colors.pink,
+                                          color: const Color.fromARGB(255, 69, 63, 249),
                                           fontSize: 16,
+                                          fontWeight: FontWeight.bold,                  
                                         ),
                                       ),
                                     ),
@@ -1446,7 +1448,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                               ' ${snapshot.data ?? "Loading..."}',
                                               style: const TextStyle(
                                                 fontSize: 14,
-                                                color: Colors.black87,
+                                                color: Color.fromARGB(255, 69, 63, 249),
                                               ),
                                             ),
                                           ),
@@ -1474,7 +1476,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                           ' ${snapshot.data ?? "Loading..."}',
                                           style: const TextStyle(
                                             fontSize: 14,
-                                            color: Colors.black87,
+                                            color: Color.fromARGB(255, 69, 63, 249),
                                           ),
                                         ),
                                       ),
@@ -1489,7 +1491,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                 children: [
                                   Text("Volunteer  ",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: const Color.fromARGB(255, 69, 63, 249),
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1824,7 +1826,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                               const SizedBox(height: 10,),
                       Text("Description",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: const Color.fromARGB(255, 69, 63, 249),
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1833,14 +1835,14 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                       Text(
                         shelterData['shelterDetails']['description'],
                         style: TextStyle(
-                          color: Colors.white,
+                          color: const Color.fromARGB(255, 69, 63, 249),
                           fontSize: 16,
                         
                         )),
                       const SizedBox(height: 10),
                       Text("Photos",
                         style:TextStyle(
-                          color: Colors.white,
+                          color: const Color.fromARGB(255, 69, 63, 249),
                           fontSize: 18,
                           fontWeight: FontWeight.bold,                       
                         )),
@@ -1927,9 +1929,9 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                               height: 40,
                               width: 150,
                               decoration: BoxDecoration(
-                                color: Colors.grey[300],
+                                color: const Color.fromARGB(255, 255, 255, 255),
                                 borderRadius: BorderRadius.circular(22),
-                                border: Border.all(color: Colors.green),
+                                border: Border.all(color: const Color.fromARGB(255, 69, 63, 249),),
                               ),
                               child: MaterialButton(
                                 onPressed: () => _handleApproval(shelterData, shelterId),
@@ -1941,7 +1943,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                   children: [
                                     Text("Approve",
                                       style: TextStyle(
-                                        color: Colors.green,
+                                        color: const Color.fromARGB(255, 69, 63, 249),
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1949,7 +1951,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                     const SizedBox(width: 5,),
                                     Icon(
                                       Icons.done,
-                                      color: Colors.green,
+                                      color: const Color.fromARGB(255, 69, 63, 249),
                                     )
                                   ],
                                 ),
@@ -1959,9 +1961,9 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                               height: 40,
                               width: 150,
                               decoration: BoxDecoration(
-                                color: Colors.grey[300],
+                                color: const Color.fromARGB(255, 255, 255, 255),
                                 borderRadius: BorderRadius.circular(22),
-                                border: Border.all(color: Colors.red),
+                                border: Border.all(color: const Color.fromARGB(255, 69, 63, 249),),
                               ),
                               child: MaterialButton(
                                 onPressed: () => _handleRejection(shelterData, shelterId),
@@ -1973,7 +1975,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                   children: [
                                     Text("Cancel",
                                       style: TextStyle(
-                                        color: Colors.red,
+                                        color: const Color.fromARGB(255, 69, 63, 249),
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1981,7 +1983,7 @@ Future<Set<Polyline>> _getRoutePolyline(Map<String, dynamic> shelterData) async 
                                     const SizedBox(width: 5,),
                                     Icon(
                                       Icons.close,
-                                      color: Colors.red,
+                                      color: const Color.fromARGB(255, 69, 63, 249),
                                     )
                                   ],
                                 ),

@@ -300,10 +300,10 @@ class _AddVolunteerDetailsState extends State<AddVolunteerDetails> {
       'description':descriptionController.text,
       'availability': {
         'type': selectedAvailability,
-        'timeSlot': availabilityTime,
+        //'timeSlot': availabilityTime,
         'fromTime': formattedFromTime,
         'toTime': formattedToTime,
-        'duration': "${durationHours}h ${durationMinutes}m"
+        //'duration': "${durationHours}h ${durationMinutes}m"
       },
       'createdAt': {
         'date': formattedDate,

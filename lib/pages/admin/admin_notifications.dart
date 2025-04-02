@@ -92,12 +92,13 @@ class _AdminNotificationsState extends State<AdminNotifications> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 80,
-        backgroundColor: themeProvider.isDarkMode ? Colors.black : Colors.white,
+        backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color.fromARGB(255, 146, 180, 248),
         title: const Center(
           child: Text(
             "Admin Notifications",
             style: TextStyle(
               fontSize: 22,
+              color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -105,7 +106,7 @@ class _AdminNotificationsState extends State<AdminNotifications> {
       ),
       backgroundColor: themeProvider.isDarkMode 
           ? Colors.grey.shade800 
-          : const Color.fromARGB(255, 170, 245, 245),
+          : const Color.fromARGB(255, 197, 204, 247),
       body: StreamBuilder<QuerySnapshot>(
         stream: notificationsStream,
         builder: (context, snapshot) {

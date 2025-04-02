@@ -8,6 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.food_delivery_app"
+    
     compileSdk = 34
     ndkVersion = flutter.ndkVersion
 

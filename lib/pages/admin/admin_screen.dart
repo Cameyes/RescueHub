@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:food_delivery_app/components/nav_bar.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
 import 'package:food_delivery_app/pages/activity_screen.dart';
+import 'package:food_delivery_app/pages/admin/admin_Ambulance_Screen.dart';
+import 'package:food_delivery_app/pages/admin/admin_Food_Screen.dart';
 import 'package:food_delivery_app/pages/admin/admin_Shelter_Screen.dart';
 import 'package:food_delivery_app/pages/admin/admin_notifications.dart';
 import 'package:food_delivery_app/pages/admin/admin_profile_page.dart';
@@ -146,7 +148,7 @@ class _AdminScreenState extends State<AdminScreen> with AutomaticKeepAliveClient
                 ),
               ],
             ),
-            backgroundColor:themeProvider.isDarkMode?Colors.grey[800]: Colors.blue,
+            backgroundColor:themeProvider.isDarkMode?Colors.grey[800]: const Color.fromARGB(255, 87, 167, 217),
             bottom: const TabBar(
               isScrollable: true,
               labelColor: Colors.white,
@@ -166,10 +168,10 @@ class _AdminScreenState extends State<AdminScreen> with AutomaticKeepAliveClient
           body: TabBarView(
             children: [
               AdminShelterScreen(userId: widget.userId, location: widget.location),
-              const Center(child: Text("Foods Page")),
+              AdminFoodScreen(userId: widget.userId, location: widget.location),
               const Center(child: Text("Clothes Page")),
               const Center(child: Text("Volunteers Page")),
-              const Center(child: Text("Ambulance Page")),
+              AdminAmbulanceScreen(userId: widget.userId, location: widget.location),
               const Center(child: Text("Medical Assistance Page")),
               const Center(child: Text("Fire and Safety Page")),
               const Center(child: Text("Blood Donors Page")),

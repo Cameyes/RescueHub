@@ -136,6 +136,249 @@ Map<String, dynamic> filterValues = {
   'count': <int>[],
   'gender': [],
 };
+
+Map<String, dynamic> filterFoodValues = {
+  'size': <int>[],
+  'type':[]
+};
+
+Map<String, dynamic> filterShelterValues = {
+  'size': <int>[],
+  'preference': [],
+};
+
+void _showShelterFilterDialog() {
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Filter Shelters'),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Size Filter
+                const Text('Size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 8,
+                  children: List.generate(10, (index) {
+                    int size = index + 1;
+                    return FilterChip(
+                      selected: filterShelterValues['size'].contains(size),
+                      label: Text(size.toString()),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterShelterValues['size'].add(size);
+                          } else {
+                            filterShelterValues['size'].remove(size);
+                          }
+                        });
+                         },
+                    );
+                  }),
+                ),
+                const Divider(),
+                 // Preference Filter
+                const Text('Preference', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 8,
+                  children: ['Males Only', 'Females Only', 'Family'].map((pref) {
+                    return FilterChip(
+                      selected: filterShelterValues['preference'].contains(pref),
+                      label: Text(pref),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterShelterValues['preference'].add(pref);
+                          } else {
+                            filterShelterValues['preference'].remove(pref);
+                          }
+                        });
+                         },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  filterShelterValues = {
+                    'size': <int>[],
+                    'preference': [],
+                  };
+                });
+              },
+              child: const Text('Clear All'),
+            ),
+             ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _applyShelterFilters();
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+void _applyShelterFilters() {
+  setState(() {
+    shelterStream = _getFilteredShelterStream();
+  });
+}
+
+Stream<QuerySnapshot>? _getFilteredShelterStream() {
+  Query query = FirebaseFirestore.instance.collection("shelter");
+
+  // Apply size filter
+  if (filterShelterValues['size'].isNotEmpty) {
+    query = query.where("Size", whereIn: filterShelterValues['size']);
+  }
+
+  // Apply preference filter
+  if (filterShelterValues['preference'].isNotEmpty) {
+    query = query.where("Preference", whereIn: filterShelterValues['preference']);
+  }
+
+  return query.snapshots();
+}
+
+void _showFoodFilterDialog() {
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Filter Food'),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Size Filter
+                const Text('Size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 8,
+                  children: List.generate(10, (index) {
+                    int size = index + 1;
+                    return FilterChip(
+                      selected: filterFoodValues['size'].contains(size),
+                      label: Text(size.toString()),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterFoodValues['size'].add(size);
+                          } else {
+                            filterFoodValues['size'].remove(size);
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ),
+                const Divider(),
+                // Type Filter
+                const Text('Type', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 8,
+                  children: ['Veg', 'Non-Veg'].map((type) {
+                    return FilterChip(
+                      selected: filterFoodValues['type'].contains(type),
+                      label: Text(type),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            filterFoodValues['type'].add(type);
+                          } else {
+                            filterFoodValues['type'].remove(type);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  filterFoodValues = {'size': <int>[], 'type': []};
+                });
+              },
+              child: const Text('Clear All'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _applyFoodFilters();
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+void _applyFoodFilters() {
+  setState(() {
+    filteredfoodStream = _getFilteredFoodStream(foodSearchController.text);
+  });
+}
+
+Stream<QuerySnapshot>? _getFilteredFoodStream(String searchQuery) {
+  Query query = FirebaseFirestore.instance.collection("food");
+
+  // Apply search filter
+  if (searchQuery.isNotEmpty) {
+    query = query.where("FoodNameLower", isGreaterThanOrEqualTo: searchQuery.toLowerCase())
+                 .where("FoodNameLower", isLessThan: '${searchQuery.toLowerCase()}z');
+  }
+
+  // Apply size filter
+  if (filterFoodValues['size'].isNotEmpty) {
+    query = query.where("Size", whereIn: filterFoodValues['size']);
+  }
+
+  // Apply type filter
+  if (filterFoodValues['type'].isNotEmpty) {
+    query = query.where("Type", whereIn: filterFoodValues['type']);
+  }
+
+  return query.snapshots();
+}
+
+
   
 
 void _showFilterDialog() {
@@ -275,7 +518,7 @@ Stream<QuerySnapshot>? _getFilteredStream(String searchQuery) {
   // Apply search filter
   if (searchQuery.isNotEmpty) {
     query = query.where("ClothNameLower", isGreaterThanOrEqualTo: searchQuery.toLowerCase())
-                .where("ClothNameLower", isLessThan: searchQuery.toLowerCase() + 'z');
+                .where("ClothNameLower", isLessThan: '${searchQuery.toLowerCase()}z');
   }
 
   // Apply size filter
@@ -322,6 +565,14 @@ Stream<QuerySnapshot>? _getFilteredStream(String searchQuery) {
   TextEditingController clothSearchController = TextEditingController();
   Stream? filteredClothStream;
 
+
+
+  TextEditingController foodSearchController = TextEditingController();
+  Stream? filteredfoodStream;
+
+
+
+  
   
 
   @override
@@ -329,7 +580,7 @@ Stream<QuerySnapshot>? _getFilteredStream(String searchQuery) {
     super.initState();
 
     filteredClothStream = clothStream;
-    
+    filteredfoodStream=foodStream;
     selectedLoc = widget.selectedLoc;
     initializeUserProfileStream();
     getontheload(selectedLoc);
@@ -1142,409 +1393,455 @@ Widget allfoodDetails(String userId){
   final themeProvider = Provider.of<ThemeProvider>(context);
     return Stack(
       children: [
-          StreamBuilder(
-          stream: foodStream, 
-          builder: (context, AsyncSnapshot snapshot){
-            return snapshot.hasData
-            ?ListView.builder(
-              itemCount: snapshot.data.docs.length,
-              itemBuilder: (context,index){
-                DocumentSnapshot ds=snapshot.data.docs[index];
-                return Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Slidable(
-                    endActionPane: ds["UserId"]==userId
-                    ?ActionPane(
-                      motion: const ScrollMotion(),
-                      extentRatio: 0.25,
-                      children: [
-                        CustomSlidableAction(
-                          backgroundColor: themeProvider.isDarkMode?Colors.grey.shade400: Colors.red,
-                          onPressed: (context) async{
-                            final foodId=ds.id;
-                            final confirmation=await showDialog(
-                              context: context, 
-                              builder: (BuildContext context){
-                                return AlertDialog(
-                                  title: const Text("Confirm Deletion"),
-                                  content: const Text("Are you sure you want to delete this food item?"),
-                                   actions: [
-                                   TextButton(
-                                      onPressed: ()=>Navigator.of(context).pop(false),
-                                     child: const Text("Cancel")
-                                     ),
-                                     TextButton(
-                                      onPressed: ()=>Navigator.of(context).pop(true),
-                                     child: const Text("Delete")
-                                     )
-                                  ],
-                                );
-                              });
+          Column(
+            children: [
+              Padding(
+  padding: const EdgeInsets.all(8.0),
+  child: Row(
+    children: [
+      Expanded(
+        child: TextField(
+          controller: foodSearchController,
+          decoration: InputDecoration(
+            hintText: 'Search food...',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: themeProvider.isDarkMode ? Colors.grey[700] : Colors.grey[200],
+          ),
+          onChanged: (value) {
+            setState(() {
+              filteredfoodStream = _getFilteredFoodStream(value);
+            });
+          },
+        ),
+      ),
+      const SizedBox(width: 8),
+      ElevatedButton.icon(
+        onPressed: () {
+          _showFoodFilterDialog();
+        },
+        icon: const Icon(Icons.filter_list),
+        label: const Text('Filter'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: themeProvider.isDarkMode ? Colors.grey[800] : Colors.blue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        ),
+      ),
+    ],
+  ),
+),
 
-                              if(confirmation == true){
-                                try{
-                                  await DatabaseMethods().deletefoodDetail(foodId);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Food Item deleted successfully")),
-                                    );
-                                }
-                                catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text("Error deleting Food Item: $e")),
-                                    );
-                                  }
-                              }
-                          }, 
-                          child:  Icon(
-                            Icons.delete,
-                            color:themeProvider.isDarkMode?Colors.black:  Colors.white,
-                            size: 30,
-                          ),
-                        ),
-                      ],
-                    ):null,
-                    child: GestureDetector(
-                      child: Material(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: themeProvider.isDarkMode?Colors.grey[600] : Color(
-                                      0xFFDEEDFC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          width: double.infinity,
-                          height: 200,
-                          child: Row(
+              Expanded(
+                child: StreamBuilder(
+                stream: filteredfoodStream??foodStream, 
+                builder: (context, AsyncSnapshot snapshot){
+                  return snapshot.hasData
+                  ?ListView.builder(
+                    itemCount: snapshot.data.docs.length,
+                    itemBuilder: (context,index){
+                      DocumentSnapshot ds=snapshot.data.docs[index];
+                      return Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Slidable(
+                          endActionPane: ds["UserId"]==userId
+                          ?ActionPane(
+                            motion: const ScrollMotion(),
+                            extentRatio: 0.25,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey,
-                                    //shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white)
-                                  ),
-                                  child: ClipRRect(
-                                    child: ds["Images"][0].isNotEmpty
-                                      ? (ds["Images"][0].startsWith('/data') 
-                                                  ? Image.file(
-                                        File(ds["Images"][0]),
-                                        fit: BoxFit.fill,
-                                        width: 100,
-                                        height: 100,
-                                          )
-                                        : Image.network(
-                                          ds["Images"][0],
-                                          fit: BoxFit.fill,
-                                          width: 100,
-                                          height: 100,
-                                        ))
-                                      : const Icon(
-                                      Icons.image,
-                                      color: Colors.white,
-                                      size: 50,
-                                      ),
-                                    ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 20.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 10,),
-                                    Row(
-                                      children: [
-                                         Text("${ds["FoodName"]}",
-                                        style: TextStyle(
-                                          color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),),
-                                        const SizedBox(width: 20,),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: "${ds["Type"]}"=="Veg"?Colors.green[800]:Colors.red,
-                                            borderRadius: BorderRadius.circular(15),
-                                            border: Border.all(color: Colors.white)
-                                          ),
-                                         width: 100,
-                                          child:  Center(
-                                            child: Text("${ds["Type"]}",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 5,),
-                                     Text(
-                                      "${ds["HouseName"]}",
-                                      style: TextStyle(
-                                        color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                        fontSize: 18.0,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      "Expiring on : ${DateFormat('MMMM d, y').format((ds["Expirty-Date"] as Timestamp).toDate())}",
-                                      style:  TextStyle(
-                                        color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                        fontSize: 16.3,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          "Fit for: ${ds["Size"]}",
-                                          style: TextStyle(
-                                            color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                            fontSize: 18.0,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10,),
-                                            FutureBuilder(
-                                              future: FirebaseFirestore.instance
-                                              .collection('food')
-                                              .doc(ds.id)
-                                              .collection('reviews')
-                                              .get(), 
-                                              builder: (
-                                                context,
-                                                AsyncSnapshot<QuerySnapshot>
-                                                reviewSnapshot){
-                                                  if(reviewSnapshot.connectionState==ConnectionState.waiting){
-                                                    return const Text(
-                                                      "Loading...",
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );
-                                                  }
-
-                                                  if(reviewSnapshot.hasData){
-                                                    final reviews=reviewSnapshot.data!.docs;
-                                                    if(reviews.isEmpty){
-                                                      return  Text(
-                                                        "(No Reviews)",
-                                                        style: TextStyle(
-                                                          color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                          fontSize: 16,
-                                                        ),
-                                                      );
-                                                    }
-                                                    
-                                                    
-                                                  double avgRating = reviews
-                                                          .map((doc) =>
-                                                              doc['rating'] as int)
-                                                          .reduce((a, b) => a + b) /
-                                                      reviews.length;
-
-                                                      return Row(
-                                                        children: [
-                                                          Text(
-                                                            avgRating.toStringAsFixed(1),
-                                                            style:  TextStyle(
-                                                             color: themeProvider.isDarkMode?Colors.white: Colors.orange,
-                                                             fontSize: 16,
-                                                             fontWeight: FontWeight.bold,                  
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 5,),
-                                                          Row(
-                                                            children: List.generate(5, (index){
-                                                              if(index <avgRating.floor())
-                                                              {
-                                                                return  Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: 16,);                                                        
-                                                              }
-                                                              else if (index < avgRating && avgRating - index >= 0.5) {
-                                                                return  Icon(Icons.star_half, color:themeProvider.isDarkMode?Colors.white: Colors.orange, size: 16);
-                                                              } 
-                                                              else {
-                                                                  return const Icon(Icons.star_border, color: Colors.grey, size: 16);
-                                                                }
-                                                            })
-                                                          ),
-                                                          Text("(${reviews.length})",
-                                                          style:  TextStyle(
-                                                            color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                            fontSize: 16,
-                                                          ),),
-                                                        ],             
-                                                      );
-
-                                                  }
-
-                                                    return  Text(
-                                                      "(No Reviews)",
-                                                      style: TextStyle(
-                                                        color: themeProvider.isDarkMode?Colors.white: Colors.black,
-                                                        fontSize: 16,
-                                                      ),
-                                                    );       
-                                                })
-
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 5,),
-                                    SizedBox(
-                                      height: 40,
-                                      width: 40,
-                                      child: FloatingActionButton(
-                                        backgroundColor:themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),
-                                        elevation: 5,
-                                        child: const Icon(
-                                          Icons.directions,
-                                          size: 30,
-                                          color: Colors.white,
-                                        ),
-                                        onPressed: () async{
-                                          // Logic to open Google Maps
-                                          try {
-                                                        // Fetch shelter coordinates
-                                                        String addressString = ds['Address'];
-                                                        List<String> latLng = addressString.split(',');
-                                                        double shelterLat = double.parse(latLng[0].trim());
-                                                        double shelterLng = double.parse(latLng[1].trim());
-
-                                                        // Fetch user coordinates from Profile collection
-                                                        DocumentSnapshot userProfile = await FirebaseFirestore.instance
-                                                            .collection("Profile")
-                                                            .doc(userId)
-                                                            .get();
-                                                        String locationString = userProfile["location"];
-                                                        List<String> userlatLng = locationString.split(',');
-                                                        double locationLat = double.parse(userlatLng[0].trim());
-                                                        double locationLng = double.parse(userlatLng[1].trim());
-
-                                                        // Get the real distance using Google Directions API
-                                                        String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc'; // Replace with your actual API key
-                                                        String url = 'https://maps.googleapis.com/maps/api/directions/json'
-                                                            '?origin=$locationLat,$locationLng'
-                                                            '&destination=$shelterLat,$shelterLng'
-                                                            '&mode=driving' // Specify travel mode
-                                                            '&key=$apiKey';
-
-                                                        final response = await http.get(Uri.parse(url));
-                                                        if (response.statusCode == 200) {
-                                                          Map<String, dynamic> data = json.decode(response.body);
-                                                          
-                                                          if (data['status'] != 'OK') {
-                                                            throw Exception('Directions API error: ${data['status']}');
-                                                          }
-
-                                                          if (data['routes'].isEmpty) {
-                                                            throw Exception('No route found');
-                                                          }
-
-                                                          // Get the actual road distance from the first route
-                                                          var route = data['routes'][0]['legs'][0];
-                                                          var distanceInMeters = route['distance']['value'];
-                                                          var distanceText = route['distance']['text'];
-                                                          var durationText = route['duration']['text'];
-                                                          var distanceInKm = distanceInMeters / 1000.0;
-
-                                                          // Get the polyline points for the route
-                                                          String encodedPoints = data['routes'][0]['overview_polyline']['points'];
-                                                          
-                                                          // Navigate to the map screen with all route information
-                                                          Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                              builder: (context) => MapScreen(
-                                                                shelterLat: shelterLat,
-                                                                shelterLng: shelterLng,
-                                                                userLat: locationLat,
-                                                                userLng: locationLng,
-                                                                distance: distanceInKm,
-                                                                distanceText: distanceText,
-                                                                durationText: durationText,
-                                                                encodedPolyline: encodedPoints,
-                                                                shelterId: ds["Id"],
-                                                              ),
-                                                            ),
-                                                          );
-                                                        } else {
-                                                          throw Exception('Failed to fetch directions: ${response.statusCode}');
-                                                        }
-                                                      } catch (e) {
-                                                        print('Error: $e');
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
-                                                        );
-                                                      }
-                                          
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    
-                                    const SizedBox(height: 55,),
-                                    GestureDetector(
-                                          child: ds['UserId']==userId
-                                          ? Container(
-                                            height: 40,
-                                            width: 40,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: const Icon(
-                                              Icons.edit,
-                                              color: Colors.black,
-                                            ),
-                                          ):const SizedBox.shrink(),                                        
-                                          onTap: () {
-                                            // Logic to open Edit Screen
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => EditFoodDetails
-                                                (foodData:ds ,
-                                                 userId: userId)
-                                              ),
-                                            );
-                                          },
-                                          
-                                        ),
-                                  ],
+                              CustomSlidableAction(
+                                backgroundColor: themeProvider.isDarkMode?Colors.grey.shade400: Colors.red,
+                                onPressed: (context) async{
+                                  final foodId=ds.id;
+                                  final confirmation=await showDialog(
+                                    context: context, 
+                                    builder: (BuildContext context){
+                                      return AlertDialog(
+                                        title: const Text("Confirm Deletion"),
+                                        content: const Text("Are you sure you want to delete this food item?"),
+                                         actions: [
+                                         TextButton(
+                                            onPressed: ()=>Navigator.of(context).pop(false),
+                                           child: const Text("Cancel")
+                                           ),
+                                           TextButton(
+                                            onPressed: ()=>Navigator.of(context).pop(true),
+                                           child: const Text("Delete")
+                                           )
+                                        ],
+                                      );
+                                    });
+                
+                                    if(confirmation == true){
+                                      try{
+                                        await DatabaseMethods().deletefoodDetail(foodId);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text("Food Item deleted successfully")),
+                                          );
+                                      }
+                                      catch (e) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text("Error deleting Food Item: $e")),
+                                          );
+                                        }
+                                    }
+                                }, 
+                                child:  Icon(
+                                  Icons.delete,
+                                  color:themeProvider.isDarkMode?Colors.black:  Colors.white,
+                                  size: 30,
                                 ),
                               ),
                             ],
+                          ):null,
+                          child: GestureDetector(
+                            child: Material(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: themeProvider.isDarkMode?Colors.grey[600] : Color(
+                                            0xFFDEEDFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                width: double.infinity,
+                                height: 200,
+                                child: Row(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Container(
+                                        width: 100,
+                                        height: 100,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey,
+                                          //shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white)
+                                        ),
+                                        child: ClipRRect(
+                                          child: ds["Images"][0].isNotEmpty
+                                            ? (ds["Images"][0].startsWith('/data') 
+                                                        ? Image.file(
+                                              File(ds["Images"][0]),
+                                              fit: BoxFit.fill,
+                                              width: 100,
+                                              height: 100,
+                                                )
+                                              : Image.network(
+                                                ds["Images"][0],
+                                                fit: BoxFit.fill,
+                                                width: 100,
+                                                height: 100,
+                                              ))
+                                            : const Icon(
+                                            Icons.image,
+                                            color: Colors.white,
+                                            size: 50,
+                                            ),
+                                          ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 20.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 10,),
+                                          Row(
+                                            children: [
+                                               Text("${ds["FoodName"]}",
+                                              style: TextStyle(
+                                                color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),),
+                                              const SizedBox(width: 20,),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: "${ds["Type"]}"=="Veg"?Colors.green[800]:Colors.red,
+                                                  borderRadius: BorderRadius.circular(15),
+                                                  border: Border.all(color: Colors.white)
+                                                ),
+                                               width: 100,
+                                                child:  Center(
+                                                  child: Text("${ds["Type"]}",
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 5,),
+                                           Text(
+                                            "${ds["HouseName"]}",
+                                            style: TextStyle(
+                                              color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                              fontSize: 18.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            "Expiring on : ${DateFormat('MMMM d, y').format((ds["Expirty-Date"] as Timestamp).toDate())}",
+                                            style:  TextStyle(
+                                              color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                              fontSize: 16.3,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                "Fit for: ${ds["Size"]}",
+                                                style: TextStyle(
+                                                  color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                  fontSize: 18.0,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10,),
+                                                  FutureBuilder(
+                                                    future: FirebaseFirestore.instance
+                                                    .collection('food')
+                                                    .doc(ds.id)
+                                                    .collection('reviews')
+                                                    .get(), 
+                                                    builder: (
+                                                      context,
+                                                      AsyncSnapshot<QuerySnapshot>
+                                                      reviewSnapshot){
+                                                        if(reviewSnapshot.connectionState==ConnectionState.waiting){
+                                                          return const Text(
+                                                            "Loading...",
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 16,
+                                                            ),
+                                                          );
+                                                        }
+                
+                                                        if(reviewSnapshot.hasData){
+                                                          final reviews=reviewSnapshot.data!.docs;
+                                                          if(reviews.isEmpty){
+                                                            return  Text(
+                                                              "(No Reviews)",
+                                                              style: TextStyle(
+                                                                color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                                fontSize: 16,
+                                                              ),
+                                                            );
+                                                          }
+                                                          
+                                                          
+                                                        double avgRating = reviews
+                                                                .map((doc) =>
+                                                                    doc['rating'] as int)
+                                                                .reduce((a, b) => a + b) /
+                                                            reviews.length;
+                
+                                                            return Row(
+                                                              children: [
+                                                                Text(
+                                                                  avgRating.toStringAsFixed(1),
+                                                                  style:  TextStyle(
+                                                                   color: themeProvider.isDarkMode?Colors.white: Colors.orange,
+                                                                   fontSize: 16,
+                                                                   fontWeight: FontWeight.bold,                  
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 5,),
+                                                                Row(
+                                                                  children: List.generate(5, (index){
+                                                                    if(index <avgRating.floor())
+                                                                    {
+                                                                      return  Icon(Icons.star,color:themeProvider.isDarkMode?Colors.white: Colors.orange,size: 16,);                                                        
+                                                                    }
+                                                                    else if (index < avgRating && avgRating - index >= 0.5) {
+                                                                      return  Icon(Icons.star_half, color:themeProvider.isDarkMode?Colors.white: Colors.orange, size: 16);
+                                                                    } 
+                                                                    else {
+                                                                        return const Icon(Icons.star_border, color: Colors.grey, size: 16);
+                                                                      }
+                                                                  })
+                                                                ),
+                                                                Text("(${reviews.length})",
+                                                                style:  TextStyle(
+                                                                  color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                                  fontSize: 16,
+                                                                ),),
+                                                              ],             
+                                                            );
+                
+                                                        }
+                
+                                                          return  Text(
+                                                            "(No Reviews)",
+                                                            style: TextStyle(
+                                                              color: themeProvider.isDarkMode?Colors.white: Colors.black,
+                                                              fontSize: 16,
+                                                            ),
+                                                          );       
+                                                      })
+                
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 5,),
+                                          SizedBox(
+                                            height: 40,
+                                            width: 40,
+                                            child: FloatingActionButton(
+                                              backgroundColor:themeProvider.isDarkMode?Colors.grey.shade800: const Color.fromARGB(255, 62, 64, 231),
+                                              elevation: 5,
+                                              child: const Icon(
+                                                Icons.directions,
+                                                size: 30,
+                                                color: Colors.white,
+                                              ),
+                                              onPressed: () async{
+                                                // Logic to open Google Maps
+                                                try {
+                                                              // Fetch shelter coordinates
+                                                              String addressString = ds['Address'];
+                                                              List<String> latLng = addressString.split(',');
+                                                              double shelterLat = double.parse(latLng[0].trim());
+                                                              double shelterLng = double.parse(latLng[1].trim());
+                
+                                                              // Fetch user coordinates from Profile collection
+                                                              DocumentSnapshot userProfile = await FirebaseFirestore.instance
+                                                                  .collection("Profile")
+                                                                  .doc(userId)
+                                                                  .get();
+                                                              String locationString = userProfile["location"];
+                                                              List<String> userlatLng = locationString.split(',');
+                                                              double locationLat = double.parse(userlatLng[0].trim());
+                                                              double locationLng = double.parse(userlatLng[1].trim());
+                
+                                                              // Get the real distance using Google Directions API
+                                                              String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc'; // Replace with your actual API key
+                                                              String url = 'https://maps.googleapis.com/maps/api/directions/json'
+                                                                  '?origin=$locationLat,$locationLng'
+                                                                  '&destination=$shelterLat,$shelterLng'
+                                                                  '&mode=driving' // Specify travel mode
+                                                                  '&key=$apiKey';
+                
+                                                              final response = await http.get(Uri.parse(url));
+                                                              if (response.statusCode == 200) {
+                                                                Map<String, dynamic> data = json.decode(response.body);
+                                                                
+                                                                if (data['status'] != 'OK') {
+                                                                  throw Exception('Directions API error: ${data['status']}');
+                                                                }
+                
+                                                                if (data['routes'].isEmpty) {
+                                                                  throw Exception('No route found');
+                                                                }
+                
+                                                                // Get the actual road distance from the first route
+                                                                var route = data['routes'][0]['legs'][0];
+                                                                var distanceInMeters = route['distance']['value'];
+                                                                var distanceText = route['distance']['text'];
+                                                                var durationText = route['duration']['text'];
+                                                                var distanceInKm = distanceInMeters / 1000.0;
+                
+                                                                // Get the polyline points for the route
+                                                                String encodedPoints = data['routes'][0]['overview_polyline']['points'];
+                                                                
+                                                                // Navigate to the map screen with all route information
+                                                                Navigator.push(
+                                                                  context,
+                                                                  MaterialPageRoute(
+                                                                    builder: (context) => MapScreen(
+                                                                      shelterLat: shelterLat,
+                                                                      shelterLng: shelterLng,
+                                                                      userLat: locationLat,
+                                                                      userLng: locationLng,
+                                                                      distance: distanceInKm,
+                                                                      distanceText: distanceText,
+                                                                      durationText: durationText,
+                                                                      encodedPolyline: encodedPoints,
+                                                                      shelterId: ds["Id"],
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              } else {
+                                                                throw Exception('Failed to fetch directions: ${response.statusCode}');
+                                                              }
+                                                            } catch (e) {
+                                                              print('Error: $e');
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                SnackBar(content: Text('Failed to get directions: ${e.toString()}')),
+                                                              );
+                                                            }
+                                                
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(height: 20),
+                                          
+                                          const SizedBox(height: 55,),
+                                          GestureDetector(
+                                                child: ds['UserId']==userId
+                                                ? Container(
+                                                  height: 40,
+                                                  width: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.black,
+                                                  ),
+                                                ):const SizedBox.shrink(),                                        
+                                                onTap: () {
+                                                  // Logic to open Edit Screen
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => EditFoodDetails
+                                                      (foodData:ds ,
+                                                       userId: userId)
+                                                    ),
+                                                  );
+                                                },
+                                                
+                                              ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PopfoodScreen(foodData: ds,),//passing snapShot Details to Another Screen=>Pop Screen Here!
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PopfoodScreen(foodData: ds,),//passing snapShot Details to Another Screen=>Pop Screen Here!
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              }):Container();
-          }),
+                      );
+                    }):Container();
+                }),
+              ),
+            ],
+          ),
           //Add Icon in bottom-left corner
           Positioned(bottom: 20,
           right: 20,
@@ -1557,6 +1854,9 @@ Widget allfoodDetails(String userId){
         ],
     );
   }
+
+
+
   Widget allclothDetails(String userId){
     final themeProvider = Provider.of<ThemeProvider>(context);
     return Stack(
@@ -1592,7 +1892,7 @@ Widget allfoodDetails(String userId){
                           filteredClothStream = FirebaseFirestore.instance
                               .collection("cloth")
                               .where("ClothNameLower", isGreaterThanOrEqualTo: value.toLowerCase())
-                              .where("ClothNameLower", isLessThan: value.toLowerCase() + 'z')
+                              .where("ClothNameLower", isLessThan: '${value.toLowerCase()}z')
                               .snapshots();
                         }
                       });
@@ -1701,7 +2001,7 @@ Widget allfoodDetails(String userId){
                                         height: 100,
                                         decoration: BoxDecoration(
                                           color: Colors.grey,
-                                          //shape: BoxShape.circle,
+                                          //shape: BoxShape.circle,n
                                           border: Border.all(color: Colors.white)
                                         ),
                                         child: ClipRRect(
@@ -2327,6 +2627,8 @@ Future<void> _handleBooking(BuildContext context, DocumentSnapshot shelterData) 
   }
 }
 
+
+
 Future<double> _calculateDistance(String location1, String location2) async {
   try {
     // Parse the coordinates
@@ -2556,6 +2858,9 @@ Future<void> _addNotification(String userId, String location) async {
     print('Error adding notification: $e');
   }
 }
+
+
+
 
    Future<void> _translateContent() async {
     final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
@@ -3065,6 +3370,389 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
     _getAddress();
   }
 
+  
+Future<double> _calculateDistance(String location1, String location2) async {
+  try {
+    // Parse the coordinates
+    List<String> coords1 = location1.split(',');
+    List<String> coords2 = location2.split(',');
+    
+    double lat1 = double.parse(coords1[0].trim());
+    double lng1 = double.parse(coords1[1].trim());
+    double lat2 = double.parse(coords2[0].trim());
+    double lng2 = double.parse(coords2[1].trim());
+
+    // Google Maps Directions API request
+    String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+    String url = 'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=$lat1,$lng1'
+        '&destination=$lat2,$lng2'
+        '&mode=driving'
+        '&key=$apiKey';
+
+    final response = await http.get(Uri.parse(url));
+    
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      
+      if (data['status'] != 'OK') {
+        throw Exception('Directions API error: ${data['status']}');
+      }
+
+      if (data['routes'].isEmpty) {
+        throw Exception('No route found');
+      }
+
+      // Get the distance in meters and convert to kilometers
+      var route = data['routes'][0]['legs'][0];
+      var distanceInMeters = route['distance']['value'];
+      return distanceInMeters / 1000.0; // Convert to kilometers
+    } else {
+      throw Exception('Failed to fetch directions: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error calculating distance: $e');
+    return 0.0;
+  }
+}
+
+
+Future<bool> _requestVolunteer(Map<String, dynamic> bookingData, List<DocumentSnapshot> volunteers, int currentIndex) async {
+  if (currentIndex >= volunteers.length) {
+    return false; // No more volunteers to try
+  }
+
+  DocumentSnapshot volunteerDoc = volunteers[currentIndex];
+  final volunteerId = volunteerDoc['userId'];
+
+  // Calculate distance between volunteer and requester
+  String requesterName = bookingData['requesterDetails']['name'];
+  String volunteerLocation = volunteerDoc['Address'];
+  String requesterLocation = bookingData['requesterDetails']['coordinates'];
+  double distance = await _calculateDistance(volunteerLocation, requesterLocation);
+
+  // Create volunteer request notification
+  final requestRef = await FirebaseFirestore.instance.collection('volunteerRequests').add({
+    'volunteerId': volunteerId,
+    'requesterId': bookingData['requesterDetails']['userId'],
+    'requesterName': bookingData['requesterDetails']['name'],
+    'requesterContact': bookingData['requesterDetails']['contact'],
+    'donorAddress': bookingData['donorDetails']['Address'],
+    'requesterAddress': bookingData['requesterDetails']['Address'],
+    'distance': distance,
+    'timestamp': FieldValue.serverTimestamp(),
+    'status': 'pending',
+    'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 5))),
+    'bookingData': bookingData,
+  });
+
+  // Send notification to volunteer
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': volunteerId,
+    'title': 'New Food Distributon Request',
+    'message': 'A Person named $requesterName needs your help with food distribution service',
+    'type': 'volunteer_request',
+    'requestId': requestRef.id,
+    'timestamp': FieldValue.serverTimestamp(),
+    'expiresIn': 1, // minutes
+  });
+
+  // Wait for volunteer response or timeout
+  try {
+    bool accepted = await _waitForVolunteerResponse(requestRef.id);
+    if (accepted) {
+      // Update booking data with volunteer info
+      bookingData['volunteerDetails'] = {
+        'userId': volunteerDoc['userId'],
+        'name': volunteerDoc['name'],
+        'contact': volunteerDoc['contact'],
+        'address': volunteerDoc['Address'],
+        'age': volunteerDoc['age'],
+        'gender': volunteerDoc['gender'],
+        'availability': volunteerDoc['availability'],
+        'profileImage': volunteerDoc['profileImage'],
+        'email': volunteerDoc['email'],
+
+      };
+      
+      // Notify requester
+      await _notifyRequester(
+        bookingData['requesterDetails']['userId'],
+        volunteerDoc['name'],
+        volunteerDoc['Address']
+      );
+
+      // Notify volunteer about pending coordinator approval
+      await _notifyVolunteer(
+        volunteerId,
+        bookingData['foodDetails']['foodName'],
+        bookingData['requesterDetails']['name']
+      );
+
+      return true;
+    } else {
+      // Try next volunteer
+      return await _requestVolunteer(bookingData, volunteers, currentIndex + 1);
+    }
+  } catch (e) {
+    print('Error in volunteer request: $e');
+    return false;
+  }
+}
+
+Future<bool> _waitForVolunteerResponse(String requestId) {
+  Completer<bool> completer = Completer();
+  Timer? timeoutTimer;
+  StreamSubscription? subscription;
+
+  // Set timeout timer
+  timeoutTimer = Timer(const Duration(minutes: 5), () {
+    subscription?.cancel();
+    completer.complete(false);
+  });
+
+  // Listen for volunteer response
+  subscription = FirebaseFirestore.instance
+      .collection('volunteerRequests')
+      .doc(requestId)
+      .snapshots()
+      .listen((snapshot) {
+    if (snapshot.data()?['status'] == 'accepted') {
+      timeoutTimer?.cancel();
+      subscription?.cancel();
+      completer.complete(true);
+    } else if (snapshot.data()?['status'] == 'declined') {
+      timeoutTimer?.cancel();
+      subscription?.cancel();
+      completer.complete(false);
+    }
+  });
+
+  return completer.future;
+}
+
+Future<void> _notifyRequester(String requesterId, String volunteerName, String volunteerLocation) async {
+  try {
+    // Convert coordinates to address
+    final coords = volunteerLocation.split(',');
+    if (coords.length != 2) {
+      throw Exception('Invalid coordinates format');
+    }
+
+    double lat = double.parse(coords[0].trim());
+    double lng = double.parse(coords[1].trim());
+
+    // Get address using geocoding
+    List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+    String address = "Unknown location";
+    
+    if (placemarks.isNotEmpty) {
+      Placemark place = placemarks[0];
+      address = " ${place.subLocality}, "
+          "${place.locality}";
+    }
+
+    // Send notification with decoded address
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': requesterId,
+      'title': 'Volunteer Assigned- Pending Approval',
+      'message': 'Volunteer $volunteerName has accepted your request. They are located at $address',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_assigned'
+    });
+  } catch (e) {
+    print('Error in _notifyRequester: $e');
+    // Send notification with coordinates if address conversion fails
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': requesterId,
+      'title': 'Volunteer Assigned',
+      'message': 'Volunteer $volunteerName has accepted your request. They are located at $volunteerLocation',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_assigned'
+    }); 
+  }
+}
+
+Future<void> _notifyVolunteer(String volunteerId, String foodName, String requesterName) async {
+  try {
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': volunteerId,
+      'title': 'Request Pending Approval',
+      'message': 'Your acceptance to help $requesterName with Food Item $foodName is pending coordinator approval. You will be notified once the coordinator reviews the request.',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'volunteer_pending_approval'
+    });
+  } catch (e) {
+    print('Error sending volunteer notification: $e');
+  }
+}
+
+  Future<void> _addFoodNotification(String userId, String location) async {
+  try {
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': userId,
+      'title': 'Booking Request',
+      'message': 'Your request has been accepted. Waiting for approval by $location Coordinator.',
+      'timestamp': Timestamp.now(),
+      'status': 'pending',
+      'type': 'shelter_booking'
+    });
+  } catch (e) {
+    print('Error adding notification: $e');
+  }
+}
+
+  Future<void> _handlefoodBooking(BuildContext context, DocumentSnapshot foodData) async {
+  try{
+    //Get Current user details
+    final currentUser=FirebaseAuth.instance.currentUser;
+    final userProfile=await FirebaseFirestore.instance
+        .collection('Profile')
+        .doc(currentUser?.uid)
+        .get();
+
+    //Get donor's profile details including image
+    final donorProfile=await FirebaseFirestore.instance
+        .collection('Profile')
+        .doc(foodData['UserId'])
+        .get();
+
+    //Get first available volunteer
+    final volunteersSnapshot=await FirebaseFirestore.instance
+        .collection('volunteer')
+        .where('status',isEqualTo: 'active')
+        .get();
+    if(volunteersSnapshot.docs.isEmpty){
+      throw Exception('No volunteers available');
+    }
+
+    //Fetch reviews for food
+         final reviewsSnapshot = await FirebaseFirestore.instance
+        .collection('food')
+        .doc(foodData.id)
+        .collection('reviews')
+        .get();
+
+        // Convert reviews to a list of maps
+    final reviews = reviewsSnapshot.docs.map((doc) => doc.data()).toList();
+    //final volunteerData = volunteersSnapshot.docs.first;
+
+    //Create booking data
+    final bookingData={
+      'foodDetails':{
+        'foodName':foodData['FoodName'],
+        'description':foodData['Description'],
+        'images':foodData['Images'],
+        'coordinates':foodData['Address'],
+        'fit':foodData['Size'],
+        'type':foodData['Type'],
+        'reviews':reviews,
+        'foodId':foodData['Id'],
+        'date':foodData['Date'],
+        'expiryDate':foodData['Expirty-Date'],
+      },
+      'donorDetails':{
+        'userId':foodData['UserId'],
+        'name':foodData['Name'],
+        'contact':foodData['Contact'],
+        'coordinates':foodData['Address'],
+        'date':foodData['Date'],
+        'profileImage':donorProfile.data()?['Image'] ?? '',
+        'age':foodData['Age'],
+        'gender':foodData['Gender'],
+        'Address':foodData['Address'],
+        
+      },
+      'requesterDetails': {
+        'userId': currentUser?.uid,
+        'name': userProfile['Name'],
+        'contact': userProfile['Contact'],
+        'coordinates': userProfile['location'],
+        'profileImage': userProfile['Image'] ?? '',
+        'age':userProfile['Age'],
+        'gender':userProfile['Gender'],
+        'Address':userProfile['Address'],
+      },
+      'foodId':foodData['Id'],
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'district':foodData['Location'],
+      'distance':foodData['distance'],
+    };
+     // Show waiting toast
+    Fluttertoast.showToast(
+      msg: "Waiting for volunteer to accept...",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+
+    // Start volunteer request process
+    bool volunteerFound = await _requestVolunteer(
+      bookingData, 
+      volunteersSnapshot.docs, 
+      0
+    );
+    if (!volunteerFound) {
+
+      // Reset shelter status if no volunteer accepts
+      await FirebaseFirestore.instance
+          .collection('food')
+          .doc(foodData.id)
+          .update({'status': 'not booked'});
+
+      // Handle case when no volunteer accepts
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No volunteer available at the moment. Please try again later.')),
+      );
+      return;
+    }
+
+  // If volunteer accepts, show success message
+    Fluttertoast.showToast(
+      msg: "Food item has been requested for distribution ",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+
+  // Update shelter status to booked
+    await FirebaseFirestore.instance
+        .collection('food')
+        .doc(foodData.id)
+        .update({'status': 'booked'});
+
+    
+    // Add to adminFoodDetails
+    await FirebaseFirestore.instance
+        .collection('adminFoodDetails')
+        .add(bookingData);
+
+
+
+   // Add notifications
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': currentUser!.uid,
+      'title': 'Food Request Pending',
+      'message': 'Your food request is waiting for ${foodData['Location']} Coordinator approval.',
+      'timestamp': Timestamp.now(),
+      'status': 'pending',
+      'type': 'shelter_booking',
+      'foodId': foodData.id,
+      'coordinates': userProfile['location'],
+      'targetCoordinates': foodData['Address']
+    });
+
+     ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Food request sent successfully')),
+    );
+
+    Navigator.pop(context);
+  } catch(e){
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  }
+}
+
   Future<void> _getAddress() async {
     try {
       // Parse the coordinates string
@@ -3084,8 +3772,8 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          address = "${place.street}, ${place.subLocality}, "
-              "${place.locality}, ${place.postalCode}, ";
+          address = " ${place.subLocality}, "
+              "${place.locality}, ";
               
         });
       }
@@ -3302,12 +3990,13 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),),
-
+              
               StreamBuilder(stream: FirebaseFirestore.instance
-              .collection('food')
-              .doc(widget.foodData.id)
-              .collection('reviews')
-              .orderBy('timestamp',descending: true)
+              .collection('Profile')
+              .doc(widget.foodData['UserId'])
+              .collection('foodReviews')
+              .where('donorId',isEqualTo: widget.foodData['UserId'])
+              //.orderBy('timestamp',descending: true)
               .snapshots(), 
               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot){
                 if(snapshot.connectionState==ConnectionState.waiting){
@@ -3425,10 +4114,13 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
                 return;
               }
               final currentUser=FirebaseAuth.instance.currentUser!;
+
+              final donorId=widget.foodData['UserId'];
+
               final existingReview=await FirebaseFirestore.instance
-              .collection('food')
-              .doc(widget.foodData.id)
-              .collection('reviews')
+              .collection('Profile')
+              .doc(donorId)
+              .collection('foodReviews')
               .where('userId',isEqualTo: currentUser.uid)
               .get();
 
@@ -3444,12 +4136,13 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
                     'rating': selectedRating,
                     'userId': FirebaseAuth.instance.currentUser?.uid,
                     'timestamp': Timestamp.now(),
+                    'donorId': donorId,
               };
 
               await FirebaseFirestore.instance
-                      .collection('food')
-                      .doc(widget.foodData.id)
-                      .collection('reviews')
+                      .collection('Profile')
+                      .doc(donorId)
+                      .collection('foodReviews')
                       .add(reviewData);
 
                    _reviewController.clear();
@@ -3487,6 +4180,7 @@ class _PopfoodScreenState extends State<PopfoodScreen> {
                   ),
                   onTap: () {
                     //Function for booking Resources!
+                   _handlefoodBooking(context, widget.foodData);
                   },
                 ),
               ),

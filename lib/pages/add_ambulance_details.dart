@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:food_delivery_app/pages/ambulance_page.dart';
@@ -42,6 +44,10 @@ class _AddAmbulanceDetailsState extends State<AddAmbulanceDetails> {
 
   File? selectedPDF;
   String? pdfFileName;
+
+   double? distance;
+String? distanceText;
+String? durationText;
 
    // Availability related variables
   String selectedAvailability = "Full Time";
@@ -334,7 +340,7 @@ class _AddAmbulanceDetailsState extends State<AddAmbulanceDetails> {
       },
       'status': 'active',
       'lastUpdated': FieldValue.serverTimestamp(),
-
+      'distance': distance,
     };
 
     // Save data to Firestore
@@ -681,6 +687,31 @@ class _AddAmbulanceDetailsState extends State<AddAmbulanceDetails> {
                               addressController.text =
                                   "${selectedLocation.latitude}, ${selectedLocation.longitude}";
                             });
+                            try {
+      String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+      String url = 'https://maps.googleapis.com/maps/api/directions/json'
+          '?origin=${widget.Loc}'  // Assuming widget.Loc is in "lat,lng" format
+          '&destination=${selectedLocation.latitude},${selectedLocation.longitude}'
+          '&mode=driving'
+          '&key=$apiKey';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        
+        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+          var route = data['routes'][0]['legs'][0];
+          var distanceInMeters = route['distance']['value'];
+          setState(() {
+            distanceText = route['distance']['text'];
+            durationText = route['duration']['text'];
+            distance = distanceInMeters / 1000.0;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error calculating distance: $e');
+    }
                           }
                         },
                         child: const Icon(Icons.map, color: Colors.white),
@@ -689,6 +720,37 @@ class _AddAmbulanceDetailsState extends State<AddAmbulanceDetails> {
                   ],
                 ),
                 const SizedBox(height: 10),
+                if (distance != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Text(
+                            "Distance: ",
+                            style: TextStyle(
+                              color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                              fontSize: 18,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Text(
+                              distanceText ?? '${distance!.toStringAsFixed(2)} km',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                const SizedBox(height: 10,),
                 Text(
                   "Email",
                   style: TextStyle(

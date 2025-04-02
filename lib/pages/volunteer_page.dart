@@ -162,7 +162,7 @@ class _VolunteerPageState extends State<VolunteerPage> with SingleTickerProvider
         List<DocumentSnapshot> volunteers = snapshot.data.docs;
 
         // Sort volunteers based on availability
-        volunteers.sort((a, b) {
+       /* volunteers.sort((a, b) {
           bool isActiveA = a["status"] == "active";
           bool isActiveB = b["status"] == "active";
           bool isAvailableA = isActiveA && (a["availability"]["type"] == "Full Time" || isCurrentlyAvailable(a["availability"]));
@@ -176,7 +176,7 @@ class _VolunteerPageState extends State<VolunteerPage> with SingleTickerProvider
           });
 
           // If all volunteers are available, sort by creation time
-          if (allAvailable) {
+          if (allAvailable) {/*
             Timestamp createdAtA = a["lastUpdated"] is Timestamp 
     ? a["lastUpdated"] 
     : Timestamp.now();
@@ -185,17 +185,17 @@ Timestamp createdAtB = b["lastUpdated"] is Timestamp
     ? b["lastUpdated"] 
     : Timestamp.now();
 
-return createdAtA.compareTo(createdAtB);
+return createdAtA.compareTo(createdAtB);*/
           }
 
           // Otherwise, sort available (green) volunteers first
-          if (isAvailableA && !isAvailableB) return -1;
-          if (!isAvailableA && isAvailableB) return 1;
+         // if (isAvailableA && !isAvailableB) return -1;
+          //if (!isAvailableA && isAvailableB) return 1;
 
           // If neither is available, sort by creation time
-          return (a["createdAt"] as Timestamp)
-              .compareTo(b["createdAt"] as Timestamp);
-        });
+          /*return (a["createdAt"] as Timestamp)
+              .compareTo(b["createdAt"] as Timestamp);*/
+        });*/
 
         return ListView.builder(
           itemCount: volunteers.length,

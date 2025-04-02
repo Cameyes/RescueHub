@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
-
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
@@ -27,6 +29,51 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
     super.initState();
     _getAddress();
   }
+
+  Future<double> _calculateDistance(String location1, String location2) async {
+  try {
+    // Parse the coordinates
+    List<String> coords1 = location1.split(',');
+    List<String> coords2 = location2.split(',');
+    
+    double lat1 = double.parse(coords1[0].trim());
+    double lng1 = double.parse(coords1[1].trim());
+    double lat2 = double.parse(coords2[0].trim());
+    double lng2 = double.parse(coords2[1].trim());
+
+    // Google Maps Directions API request
+    String apiKey = 'AIzaSyCpDn4zTqIWLIsTvuoO_xioZTeOnI6mtqc';
+    String url = 'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=$lat1,$lng1'
+        '&destination=$lat2,$lng2'
+        '&mode=driving'
+        '&key=$apiKey';
+
+    final response = await http.get(Uri.parse(url));
+    
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response.body);
+      
+      if (data['status'] != 'OK') {
+        throw Exception('Directions API error: ${data['status']}');
+      }
+
+      if (data['routes'].isEmpty) {
+        throw Exception('No route found');
+      }
+
+      // Get the distance in meters and convert to kilometers
+      var route = data['routes'][0]['legs'][0];
+      var distanceInMeters = route['distance']['value'];
+      return distanceInMeters / 1000.0; // Convert to kilometers
+    } else {
+      throw Exception('Failed to fetch directions: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error calculating distance: $e');
+    return 0.0;
+  }
+}
   
   Future<void> _getAddress() async {
     try {
@@ -85,6 +132,256 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
       ),
     );
   }
+
+  Future<void> _handleAmbulanceBooking(BuildContext context, DocumentSnapshot ambulanceData) async {
+  try {
+    // Get current user details
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final userProfile = await FirebaseFirestore.instance
+        .collection('Profile')
+        .doc(currentUser?.uid)
+        .get();
+
+    // Get first available ambulance driver
+    final driversSnapshot = await FirebaseFirestore.instance
+        .collection('ambulance')
+        .where('status', isEqualTo: 'active')
+        .get();
+
+    if (driversSnapshot.docs.isEmpty) {
+      throw Exception('No ambulance drivers available');
+    }
+
+    // Create booking data
+    final bookingData = {
+      'ambulanceDetails': {
+        'driverId': ambulanceData['id'],
+        'driverName': ambulanceData['name'],
+        'licenseType': ambulanceData['lictype'],
+        'experience': ambulanceData['experience'],
+        'ambAvailability': ambulanceData['ambAvail'],
+        'coordinates': ambulanceData['Address'],
+        'description':ambulanceData['description'],
+        'licence': ambulanceData['licencePDF'],
+      },
+      'requesterDetails': {
+        'userId': currentUser?.uid,
+        'name': userProfile['Name'],
+        'contact': userProfile['Contact'],
+        'coordinates': userProfile['location'],
+        'profileImage': userProfile['Image'] ?? '',
+        'age': userProfile['Age'],
+        'gender': userProfile['Gender'],
+        'Address': userProfile['Address'],
+      },
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'district': ambulanceData['location'],
+      'emergencyType': 'medical', // You can add more types if needed
+      'distance':ambulanceData['distance'],
+    };
+
+    // Show waiting toast
+    Fluttertoast.showToast(
+      msg: "Requesting ambulance service...",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+
+    // Start ambulance driver request process
+    bool driverFound = await _requestAmbulanceDriver(
+      bookingData, 
+      driversSnapshot.docs, 
+      0
+    );
+
+    if (!driverFound) {
+
+      //Reset Driver Status if no Driver Accepts
+      await FirebaseFirestore.instance
+          .collection('ambulance')
+          .doc(ambulanceData.id)
+          .update({'status': 'active'});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No ambulance drivers available at the moment. Please try again later.')),
+      );
+      return;
+    }
+    
+    // If driver accepts, show success message
+    Fluttertoast.showToast(
+      msg: "Ambulance service has been requested",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+    );
+
+    //Update Driver Status to booked
+    await FirebaseFirestore.instance
+        .collection('ambulance')
+        .doc(ambulanceData.id)
+        .update({'status': 'booked'});
+
+    // Add to adminAmbulanceDetails
+    await FirebaseFirestore.instance
+        .collection('adminAmbulanceDetails')
+        .add(bookingData);
+
+    // Add notification
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': currentUser!.uid,
+      'title': 'Ambulance Request Pending',
+      'message': 'Your ambulance request is waiting for ${ambulanceData['location']} Coordinator approval.',
+      'timestamp': Timestamp.now(),
+      'status': 'pending',
+      'type': 'shelter_booking',
+      'sound': 'notification_sound.mp3', // Add sound effect
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ambulance request sent successfully')),
+    );
+
+    Navigator.pop(context);
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
+  }
+}
+
+Future<bool> _requestAmbulanceDriver(Map<String, dynamic> bookingData, List<DocumentSnapshot> drivers, int currentIndex) async {
+  if (currentIndex >= drivers.length) {
+    return false; // No more drivers to try
+  }
+
+  DocumentSnapshot driverDoc = drivers[currentIndex];
+  final driverId = driverDoc['userId'];
+
+  // Calculate distance between driver and requester
+  String requesterName = bookingData['requesterDetails']['name'];
+  String driverLocation = driverDoc['Address'];
+  String requesterLocation = bookingData['requesterDetails']['coordinates'];
+  double distance = await _calculateDistance(driverLocation, requesterLocation);
+
+  // Create driver request notification
+  final requestRef = await FirebaseFirestore.instance
+      .collection('ambulanceRequests')
+      .add({
+    'driverId': driverId,
+    'requesterId': bookingData['requesterDetails']['userId'],
+    'requesterName': bookingData['requesterDetails']['name'],
+    'requesterContact': bookingData['requesterDetails']['contact'],
+    'requesterAddress': bookingData['requesterDetails']['Address'],
+    'distance': distance,
+    'timestamp': FieldValue.serverTimestamp(),
+    'status': 'pending',
+    'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(minutes: 2))),
+    'bookingData': bookingData,
+  });
+
+  // Send notification to driver with sound
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': driverId,
+    'title': 'New Ambulance Service Request',
+    'message': 'A person named $requesterName needs ambulance service',
+    'type': 'ambulance_request',
+    'requestId': requestRef.id,
+    'timestamp': FieldValue.serverTimestamp(),
+    'expiresIn': 2, // minutes
+    'sound': 'emergency_sound.mp3', // Add emergency sound
+  });
+
+  // Wait for driver response
+  try {
+    bool accepted = await _waitForDriverResponse(requestRef.id);
+    if (accepted) {
+      // Update booking data with driver info
+      bookingData['driverDetails'] = {
+        'userId': driverId,
+        'name': driverDoc['name'],
+        'contact': driverDoc['contact'],
+        'address': driverDoc['Address'],
+        'experience': driverDoc['experience'],
+        'licenseType': driverDoc['lictype'],
+        'profileImage': driverDoc['profileImage'],
+        'Gender':driverDoc['gender'],
+        'Age':driverDoc['age'],
+        'Contact':driverDoc['contact'],
+      };
+
+      // Notify requester
+      await _notifyRequester(
+        bookingData['requesterDetails']['userId'],
+        bookingData['ambulanceDetails']['driverName'],
+        bookingData['district'],
+      );
+
+      // Notify driver
+      await _notifyDriver(
+        driverId,
+        bookingData['requesterDetails']['name'],
+        bookingData['district']
+      );
+
+      return true;
+    } else {
+      // Try next driver
+      return await _requestAmbulanceDriver(bookingData, drivers, currentIndex + 1);
+    }
+  } catch (e) {
+    print('Error in ambulance request: $e');
+    return false;
+  }
+}
+
+Future<void> _notifyRequester(String requesterId, String driverName, String location) async {
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': requesterId,
+    'title': 'Ambulance Driver Assigned',
+    'message': 'Driver $driverName has accepted your request and is waiting for $location Coordinator approval.',
+    'timestamp': FieldValue.serverTimestamp(),
+    'type': 'ambulance_driver_assigned',
+  });
+}
+
+Future<void> _notifyDriver(String driverId, String requesterName, String location) async {
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': driverId,
+    'title': 'Request Pending Approval',
+    'message': 'You have accepted to help $requesterName. You will be notified once the request is approved by $location Coordinator.',
+    'timestamp': FieldValue.serverTimestamp(),
+    'type': 'ambulance_pending_approval',
+    'sound': 'notification_sound.mp3',
+  });
+}
+
+Future<bool> _waitForDriverResponse(String requestId) async {
+  try {
+    // Wait for up to 2 minutes for driver response
+    DateTime expiry = DateTime.now().add(const Duration(minutes: 2));
+    while (DateTime.now().isBefore(expiry)) {
+      DocumentSnapshot request = await FirebaseFirestore.instance
+          .collection('ambulanceRequests')
+          .doc(requestId)
+          .get();
+
+      if (!request.exists) return false;
+      
+      String status = request['status'];
+      if (status == 'accepted') return true;
+      if (status == 'rejected') return false;
+
+      await Future.delayed(const Duration(seconds: 5));
+    }
+    return false;
+  } catch (e) {
+    print('Error waiting for driver response: $e');
+    return false;
+  }
+}
+
+
 
 
   @override
@@ -272,10 +569,11 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                           children: [
                             StreamBuilder(
                               stream: FirebaseFirestore.instance
-                                  .collection('ambulance')
-                                  .doc(widget.ambulanceData.id)
-                                  .collection('reviews')
-                                  .orderBy('timestamp', descending: true)
+                                  .collection('Profile')
+                                  .doc(FirebaseAuth.instance.currentUser?.uid)
+                                  .collection('ambulanceReviews')
+                                  .where('userId', isEqualTo:FirebaseAuth.instance.currentUser?.uid)
+                                  //.orderBy('timestamp', descending: true)
                                   .snapshots(),
                               builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
                                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -301,24 +599,18 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                                   itemBuilder: (context, index) {
                                     final review = snapshot.data!.docs[index];
                                     return FutureBuilder(
-                                      future: Future.wait([
-                                        FirebaseFirestore.instance
-                                            .collection('users')
-                                            .doc(review['userId'])
-                                            .get(),
-                                        FirebaseFirestore.instance
+                                      future: FirebaseFirestore.instance
                                             .collection('Profile')
                                             .doc(review['userId'])
                                             .get(),
-                                      ]),
-                                      builder: (context, AsyncSnapshot<List<DocumentSnapshot>> userSnapshot) {
+                                       
+                                      builder: (context, AsyncSnapshot<DocumentSnapshot> userSnapshot) {
                                         if (!userSnapshot.hasData) {
                                           return const Center(
                                             child: CircularProgressIndicator(),
                                           );
                                         }
-                                        final userData = userSnapshot.data![0].data() as Map<String, dynamic>;
-                                        final profileData = userSnapshot.data![1].data() as Map<String, dynamic>?;
+                                        final profileData = userSnapshot.data!.data() as Map<String, dynamic>;
                                         
                                         return Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,7 +619,7 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                                               children: [
                                                 CircleAvatar(
                                                   radius: 20,
-                                                  backgroundImage: profileData != null && profileData['Image'] != null
+                                                  backgroundImage: profileData['Image'] != null
                                                       ? NetworkImage(profileData['Image'])
                                                       : const AssetImage('lib/images/default_profile.png')
                                                           as ImageProvider,
@@ -338,7 +630,7 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
                                                       Text(
-                                                        userData['name'] ?? 'Unknown User',
+                                                        profileData['Name'] ?? 'Unknown User',
                                                         style: TextStyle(
                                                           color: themeProvider.isDarkMode
                                                               ? Colors.white
@@ -471,9 +763,9 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                                   }
                                   final currentUser = FirebaseAuth.instance.currentUser!;
                                   final existingReview = await FirebaseFirestore.instance
-                                      .collection('ambulance')
-                                      .doc(widget.ambulanceData.id)
-                                      .collection('reviews')
+                                      .collection('Profile')
+                                      .doc(currentUser.uid)
+                                      .collection('ambulanceReviews')
                                       .where('userId', isEqualTo: currentUser.uid)
                                       .get();
                               
@@ -492,9 +784,9 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                                   };
                               
                                   await FirebaseFirestore.instance
-                                      .collection('ambulance')
-                                      .doc(widget.ambulanceData.id)
-                                      .collection('reviews')
+                                      .collection('Profile')
+                                      .doc(FirebaseAuth.instance.currentUser?.uid)
+                                      .collection('ambulanceReviews')
                                       .add(reviewData);
                               
                                   _reviewController.clear();
@@ -542,6 +834,7 @@ class _AmbulancePopScreenState extends State<AmbulancePopScreen> {
                               ),
                               onTap: (){
                                 //Logic for requesting help from Ambulance Drivers
+                                _handleAmbulanceBooking(context, widget.ambulanceData);
                               },
                             )
                 ],

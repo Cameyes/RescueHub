@@ -160,40 +160,45 @@ class _AmbulancePageState extends State<AmbulancePage> with SingleTickerProvider
         List<DocumentSnapshot> ambulances = snapshot.data.docs;
 
         // Sort ambulances based on availability
-        ambulances.sort((a, b) {
-          bool isActiveA = a["status"] == "active";
-          bool isActiveB = b["status"] == "active";
-          bool isAvailableA = isActiveA && (a["availability"]["type"] == "Full Time" || isCurrentlyAvailable(a["availability"]));
-          bool isAvailableB = isActiveB && (b["availability"]["type"] == "Full Time" || isCurrentlyAvailable(b["availability"]));
+        // Replace the sorting section with this updated code:
+ambulances.sort((a, b) {
+  bool isActiveA = a["status"] == "active";
+  bool isActiveB = b["status"] == "active";
+  bool isAvailableA = isActiveA && (a["availability"]["type"] == "Full Time" || isCurrentlyAvailable(a["availability"]));
+  bool isAvailableB = isActiveB && (b["availability"]["type"] == "Full Time" || isCurrentlyAvailable(b["availability"]));
 
-          // Check if all ambulances are available
-          bool allAvailable = ambulances.every((ambulance) {
-            bool isActive = ambulance["status"] == "active";
-            return isActive && (ambulance["availability"]["type"] == "Full Time" || 
-                   isCurrentlyAvailable(ambulance["availability"]));
-          });
+  // Check if all ambulances are available
+  bool allAvailable = ambulances.every((ambulance) {
+    bool isActive = ambulance["status"] == "active";
+    return isActive && (ambulance["availability"]["type"] == "Full Time" || 
+           isCurrentlyAvailable(ambulance["availability"]));
+  });
 
-          // If all ambulances are available, sort by creation time
-          if (allAvailable) {
-            Timestamp createdAtA = a["lastUpdated"] is Timestamp 
-    ? a["lastUpdated"] 
-    : Timestamp.now();
+  // If all ambulances are available, sort by lastUpdated
+  if (allAvailable) {
+    dynamic lastUpdatedA = a["lastUpdated"];
+    dynamic lastUpdatedB = b["lastUpdated"];
 
-Timestamp createdAtB = b["lastUpdated"] is Timestamp 
-    ? b["lastUpdated"] 
-    : Timestamp.now();
+    // Handle cases where lastUpdated might not be a Timestamp
+    Timestamp timestampA = lastUpdatedA is Timestamp ? lastUpdatedA : Timestamp.now();
+    Timestamp timestampB = lastUpdatedB is Timestamp ? lastUpdatedB : Timestamp.now();
 
-return createdAtA.compareTo(createdAtB);
-          }
+    return timestampA.compareTo(timestampB);
+  }
 
-          // Otherwise, sort available (green) ambulances first
-          if (isAvailableA && !isAvailableB) return -1;
-          if (!isAvailableA && isAvailableB) return 1;
+  // Otherwise, sort available (green) ambulances first
+  if (isAvailableA && !isAvailableB) return -1;
+  if (!isAvailableA && isAvailableB) return 1;
 
-          // If neither is available, sort by creation time
-          return (a["createdAt"] as Timestamp)
-              .compareTo(b["createdAt"] as Timestamp);
-        });
+  // If neither is available, sort by createdAt
+  dynamic createdAtA = a["createdAt"];
+  dynamic createdAtB = b["createdAt"];
+
+  Timestamp timestampA = createdAtA is Timestamp ? createdAtA : Timestamp.now();
+  Timestamp timestampB = createdAtB is Timestamp ? createdAtB : Timestamp.now();
+
+  return timestampA.compareTo(timestampB);
+});
 
         return ListView.builder(
           itemCount: ambulances.length,

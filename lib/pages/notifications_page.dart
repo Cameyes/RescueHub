@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:food_delivery_app/components/theme_provider.dart';
+import 'package:food_delivery_app/pages/chatScreen.dart';
 import 'package:food_delivery_app/service/language_provider.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,59 @@ class _NotificationsPageState extends State<NotificationsPage> {
         //.orderBy("timestamp", descending: true)
         .snapshots();
   }
+
+  Future<void> _handleAmbulanceResponse(String requestId, bool accepted) async {
+  try {
+    // Update the ambulance request status
+    await FirebaseFirestore.instance
+        .collection('ambulanceRequests')
+        .doc(requestId)
+        .update({
+      'status': accepted ? 'accepted' : 'declined',
+      'responseTime': FieldValue.serverTimestamp(),
+    });
+
+    // Delete the notification
+    final notifications = await FirebaseFirestore.instance
+        .collection('notifications')
+        .where('requestId', isEqualTo: requestId)
+        .get();
+    
+    for (var doc in notifications.docs) {
+      await doc.reference.delete();
+    }
+
+    // Play notification sound
+    
+
+    // Show appropriate toast message
+    Fluttertoast.showToast(
+      msg: accepted 
+          ? 'You have accepted the ambulance request' 
+          : 'You have declined the ambulance request',
+      backgroundColor: accepted ? Colors.green : Colors.orange,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_LONG,
+    );
+
+    if (!accepted) {
+      // If declined, update the ambulance status back to available
+      await FirebaseFirestore.instance
+          .collection('ambulance')
+          .doc(widget.userId)
+          .update({'status': 'active'});
+    }
+
+  } catch (e) {
+    print('Error handling ambulance response: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Error processing your response. Please try again.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
 
   Future<bool> _hasUserReviewedVolunteer(String volunteerId, String userId) async {
   try {
@@ -124,11 +178,301 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildNotificationContent(Map<String, dynamic> notification) {
+    List<Widget> content = [
+      Text(
+      notification['title'],
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    const SizedBox(height: 8),
+    Text(notification['message']),
+    const SizedBox(height: 12),
+    ];
     
-    
+    // Add this to your existing _buildNotificationContent method where appropriate:
+ if (notification['type'] == 'volunteer_assigned') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      // Add chat button here
+      ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: widget.userId,
+                otherUserId: widget.userId == notification['requesterId'] 
+                    ? notification['volunteerId'] 
+                    : notification['requesterId'],
+                otherUserName: widget.userId == notification['requesterId']
+                    ? notification['volunteerName']
+                    : notification['requesterName'],
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.chat),
+        label: const Text('Chat'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    ],
+  );
+}
+
+else if (notification['type'] == 'ambulance_completed') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.green.withOpacity(0.3),
+          ),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.green,
+              size: 48,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Service Completed',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Driver: ${notification['driverName']}',
+              style: const TextStyle(
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  'Reached Hospital',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+else if (notification['type'] == 'ambulance_driver_assigned' || 
+         notification['type'] == 'ambulance_pending_approval') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      
+    ],
+  );
+}
+
+    // Add this else if block in the _buildNotificationContent method
+else if (notification['type'] == 'ambulance_approved_verify') {
+  final TextEditingController otpController = TextEditingController();
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      // Tracking info
+      FutureBuilder<Map<String, dynamic>>(
+        future: _getTrackingInfo(
+          notification['coordinates'],
+          notification['targetCoordinates']
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA: ${snapshot.data!['duration']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.directions_car, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance: ${snapshot.data!['distance']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _launchTrackingMap(
+                    notification['coordinates'],
+                    notification['targetCoordinates']
+                  ),
+                  icon: const Icon(Icons.location_on),
+                  label: const Text('Track Requester'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Chat button
+                ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: widget.userId,
+                otherUserId: notification['requesterId'],
+                otherUserName: notification['requesterName'],
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.chat),
+        label: const Text('Chat with Requester'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 36),
+        ),
+      ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 16),
+      // OTP verification section
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Verify Requester',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: otpController,
+              decoration: const InputDecoration(
+                labelText: 'Enter verification code',
+                border: OutlineInputBorder(),
+                hintText: '4-digit code',
+              ),
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _verifyAmbulanceOTP(
+                  otpController.text,
+                  notification['ambulanceId'],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Verify Code'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
 
     // Special handling for volunteer request notifications
-    if (notification['type'] == 'volunteer_request') {
+    else if (notification['type'] == 'volunteer_request') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -158,6 +502,42 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ],
       );
     }
+
+    // Add this condition alongside other notification type checks
+else if (notification['type'] == 'ambulance_request') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 8),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            onPressed: () => _handleAmbulanceResponse(notification['requestId'], false),
+            child: const Text('Decline'),
+          ),
+          ElevatedButton(
+            onPressed: () => _handleAmbulanceResponse(notification['requestId'], true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
      // Handle OTP verification for volunteer
   else if (notification['type'] == 'shelter_approved_verify') {
@@ -283,6 +663,130 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
+  // Add this condition in the _buildNotificationContent method
+else if (notification['type'] == 'food_approved_verify') {
+  final TextEditingController otpController = TextEditingController();
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      // Tracking info
+      FutureBuilder<Map<String, dynamic>>(
+        future: _getTrackingInfo(
+          notification['coordinates'],
+          notification['targetCoordinates']
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA: ${snapshot.data!['duration']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.directions_car, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance: ${snapshot.data!['distance']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _launchTrackingMap(
+                    notification['coordinates'],
+                    notification['targetCoordinates']
+                  ),
+                  icon: const Icon(Icons.location_on),
+                  label: const Text('Track Requester'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 16),
+      // OTP verification section for food
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Verify Food Pickup',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: otpController,
+              decoration: const InputDecoration(
+                labelText: 'Enter verification code',
+                border: OutlineInputBorder(),
+                hintText: '4-digit code',
+              ),
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _verifyFoodOTP(
+                  otpController.text,
+                  notification['foodId'],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Verify Code'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
   // Handle OTP display for requester
   else if (notification['type'] == 'otp_notification') {
     return Column(
@@ -337,7 +841,99 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-
+  else if (notification['type'] == 'ambulance_approved') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      FutureBuilder<Map<String, dynamic>>(
+        future: _getTrackingInfo(
+          notification['coordinates'], 
+          notification['targetCoordinates']
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA: ${snapshot.data!['duration']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.local_hospital_outlined, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance: ${snapshot.data!['distance']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _launchTrackingMap(
+                    notification['coordinates'],
+                    notification['targetCoordinates']
+                  ),
+                  icon: const Icon(Icons.location_on),
+                  label: const Text('Track Ambulance'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Chat button
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatScreen(
+                          currentUserId: widget.userId,
+                          otherUserId: notification['driverId'],
+                          otherUserName: notification['driverName'],
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.chat),
+                  label: const Text('Chat with Driver'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 36),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
 
 
     else if (notification['type'] == 'shelter_approved') {
@@ -425,6 +1021,32 @@ else if (notification['type'] == 'volunteer_pickup_confirmed') {
       ),
       const SizedBox(height: 8),
       Text(notification['message']),
+      const SizedBox(height: 12),
+      //add Chat Button Here
+      ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: widget.userId,
+                otherUserId: widget.userId == notification['volunteerId'] 
+                    ? notification['requesterId'] 
+                    : notification['volunteerId'],
+                otherUserName: widget.userId == notification['volunteerId']
+                    ? notification['requesterName']
+                    : notification['volunteerName'],
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.chat),
+        label: const Text('Chat'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+      ),
       const SizedBox(height: 12),
       FutureBuilder<Map<String, dynamic>>(
         future: _getTrackingInfo(
@@ -518,6 +1140,230 @@ else if (notification['type'] == 'volunteer_pickup_confirmed') {
     ],
   );
 }
+
+else if (notification['type'] == 'ambulance_service_started') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      FutureBuilder<Map<String, dynamic>>(
+        future: _getTrackingInfo(
+          notification['coordinates'],
+          notification['targetCoordinates']
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA: ${snapshot.data!['duration']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.local_hospital_outlined, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance: ${snapshot.data!['distance']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _launchTrackingMap(
+                          notification['coordinates'],
+                          notification['targetCoordinates']
+                        ),
+                        icon: const Icon(Icons.location_on),
+                        label: const Text('Track Location'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _markAmbulanceDestinationReached(notification),
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Reached Hospital'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
+else if (notification['type'] == 'volunteer_food_pickup_confirmed') {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        notification['title'],
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(notification['message']),
+      const SizedBox(height: 12),
+      //add Chat Button Here
+      ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                currentUserId: widget.userId,
+                otherUserId: widget.userId == notification['volunteerId'] 
+                    ? notification['requesterId'] 
+                    : notification['volunteerId'],
+                otherUserName: widget.userId == notification['volunteerId']
+                    ? notification['requesterName']
+                    : notification['volunteerName'],
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.chat),
+        label: const Text('Chat'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      const SizedBox(height: 12),
+      FutureBuilder<Map<String, dynamic>>(
+        future: _getTrackingInfo(
+          notification['coordinates'],
+          notification['targetCoordinates']
+        ),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA: ${snapshot.data!['duration']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.directions_car, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Distance: ${snapshot.data!['distance']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _launchTrackingMap(
+                          notification['coordinates'],
+                          notification['targetCoordinates']
+                        ),
+                        icon: const Icon(Icons.location_on),
+                        label: const Text('Track Location'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                             await _markFoodDestinationReached(notification);
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                          } catch (e) {
+                            print('Error marking destination reached: $e');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Error updating status. Please try again.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Reached Destination'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ],
+  );
+}
+
 
 else if (notification['type'] == 'volunteer_completed') {
   return Column(
@@ -713,6 +1559,135 @@ else if (notification['type'] == 'volunteer_completed') {
   }
 }
 
+Future<void> _markAmbulanceDestinationReached(Map<String, dynamic> notification) async {
+  try {
+    final decodedAddress = await _getDecodedAddress(notification['targetCoordinates']);
+
+    // Add activity data
+    await FirebaseFirestore.instance
+        .collection('userAmbulanceActivities')
+        .doc(notification['requesterId'])
+        .set({
+          'type': 'ambulance_service',
+          'driverName': notification['driverName'],
+          'hospitalAddress': decodedAddress,
+          'ambulanceId': notification['ambulanceId'],
+          'status': 'completed',
+          'completedAt': FieldValue.serverTimestamp(),
+          'driverId': notification['driverId'],
+        });
+
+        // Update driver status to active
+    await FirebaseFirestore.instance
+        .collection('ambulance')
+        .doc(notification['ambulanceId'])
+        .update({
+          'status': 'active',
+        });
+
+
+    // Send completion notification to requester
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': notification['requesterId'],
+      'title': 'Hospital Reached',
+      'message': 'You have reached the hospital at $decodedAddress',
+      'type': 'ambulance_completed',
+      'driverId': notification['driverId'],
+      'requesterId': notification['requesterId'],
+      'driverName': notification['driverName'],
+      'coordinates': notification['coordinates'],
+      'targetCoordinates': notification['targetCoordinates'],
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    // Delete tracking notifications
+    final trackingNotifications = await FirebaseFirestore.instance
+        .collection('notifications')
+        .where('ambulanceId', isEqualTo: notification['ambulanceId'])
+        .where('type', whereIn: ['ambulance_service_started', 'ambulance_service_confirmed'])
+        .get();
+
+    // Delete notifications in batch
+    final batch = FirebaseFirestore.instance.batch();
+    for (var doc in trackingNotifications.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    // Show success toast
+    Fluttertoast.showToast(
+      msg: "Hospital reached successfully!",
+      backgroundColor: Colors.green,
+      textColor: Colors.white,
+      gravity: ToastGravity.BOTTOM,
+      toastLength: Toast.LENGTH_LONG,
+    );
+  } catch (e) {
+    debugPrint('Error marking ambulance destination reached: $e');
+    rethrow;
+  }
+}
+
+ Future<void> _markFoodDestinationReached(Map<String, dynamic> notification) async {
+  try {
+    final decodedAddress = await _getDecodedAddress(notification['targetCoordinates']);
+
+    // Add activity data using the data from notification
+    await FirebaseFirestore.instance
+        .collection('userFoodActivities')
+        .doc(notification['requesterId'])
+        .set({
+          'type': 'food_delivery',
+          'foodName': notification['foodName'],
+          'foodAddress': decodedAddress,
+          'foodId': notification['foodId'],
+          'status': 'active',
+          'photos': notification['foodPhotos'], // Use from notification
+          'donorId':notification['donorId'],
+        });
+
+        // Send completion notification to requester
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'userId': notification['requesterId'],
+      'title': 'Destination Reached',
+      'message': 'Your food have been volunteered safely to  $decodedAddress',
+      'type': 'volunteer_completed',
+      'volunteerId': notification['volunteerId'],
+      'requesterId': notification['requesterId'],
+      'foodName': notification['foodName'],
+      'coordinates': notification['coordinates'],
+      'targetCoordinates': notification['targetCoordinates'],
+      'timestamp': FieldValue.serverTimestamp(),
+    });        
+
+    // Delete all tracking notifications
+    final trackingNotifications = await FirebaseFirestore.instance
+        .collection('notifications')
+        .where('foodId', isEqualTo: notification['foodId'])
+        .where('type', whereIn: [ 'volunteer_food_pickup_confirmed'])
+        .get();
+
+         // Delete notifications in batch
+    final batch = FirebaseFirestore.instance.batch();
+    for (var doc in trackingNotifications.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+     // Show success toast
+    Fluttertoast.showToast(
+      msg: "Destination reached successfully!",
+      backgroundColor: Colors.green,
+      textColor: Colors.white,
+      gravity: ToastGravity.BOTTOM,
+      toastLength: Toast.LENGTH_LONG,
+    );
+  } catch (e) {
+    debugPrint('Error marking destination reached: $e');
+    rethrow;
+  }
+}
+
 
   Future<String> _getDecodedAddress(String coordinates) async {
   try {
@@ -768,6 +1743,8 @@ Future<void> _sendUpdatedNotifications(
     'volunteerId': shelterData['volunteerDetails']['userId'], // Add this
     'requesterId': shelterData['requesterDetails']['userId'], // Add this
     'timestamp': FieldValue.serverTimestamp(),
+    'volunteerName': volunteerName,
+    'requesterName': requesterName,
   });
 
   // Send notification to volunteer
@@ -785,6 +1762,8 @@ Future<void> _sendUpdatedNotifications(
     'stayEndDate': shelterData['stayPeriod']['toDate'],
     'shelterPhotos': shelterData['shelterDetails']['images'],
     'timestamp': FieldValue.serverTimestamp(),
+    'volunteerName': volunteerName,
+    'requesterName': requesterName,
   });
 }
 
@@ -845,7 +1824,7 @@ Widget _buildReviewDialog(BuildContext context, String volunteerId) {
              // Query for the volunteer document where userId equals currentUser.uid
               final volunteersQuery = await FirebaseFirestore.instance
                   .collection('volunteer')
-                  .where('userId', isEqualTo: currentUser.uid)
+                  .where('userId', isEqualTo: volunteerId)
                   .limit(1)
                   .get();
             
@@ -866,7 +1845,7 @@ Widget _buildReviewDialog(BuildContext context, String volunteerId) {
                   'reviewText': reviewController.text.trim(),
                   'timestamp': FieldValue.serverTimestamp(),
                   'userId': currentUser.uid,
-                  'reviewerName': currentUser.displayName ?? 'Anonymous',
+                  
                 });
 
             if (context.mounted) {
@@ -981,6 +1960,263 @@ Widget _buildReviewDialog(BuildContext context, String volunteerId) {
   }
 }
 
+Future<void> _verifyFoodOTP(String enteredOTP, String foodId) async {
+  try {
+    final verificationDoc = await FirebaseFirestore.instance
+        .collection('foodVerification')
+        .doc(foodId)
+        .get();
+
+    if (!verificationDoc.exists) {
+      throw Exception('Verification data not found');
+    }
+
+    final data = verificationDoc.data()!;
+    final correctOTP = data['otp'] as String;
+
+    if (enteredOTP == correctOTP) {
+      // Get food and volunteer details
+      final foodSnapshot = await FirebaseFirestore.instance
+          .collection('adminFoodDetails')
+          .doc(foodId)
+          .get();
+
+      final foodData = foodSnapshot.data()!;
+      final volunteerName = foodData['volunteerDetails']['name'];
+      final requesterName = foodData['requesterDetails']['name'];
+      final foodName = foodData['foodDetails']['foodName'];
+      final foodCoords = foodData['donorDetails']['coordinates'];
+
+      // Get decoded food address
+      final decodedAddress = await _getDecodedAddress(foodCoords);
+
+      // Update verification status
+      await verificationDoc.reference.update({
+        'verified': true,
+        'verificationTime': FieldValue.serverTimestamp(),
+      });
+
+      // Remove existing notifications for both parties
+      await _removeExistingNotifications(
+        foodData['requesterDetails']['userId'],
+        foodData['volunteerDetails']['userId']
+      );
+
+      // Send new notifications
+      await _sendUpdatedFoodNotifications(
+        foodData,
+        volunteerName,
+        requesterName,
+        foodName,
+        decodedAddress
+      );
+
+      // Show success toast
+      Fluttertoast.showToast(
+        msg: "Food pickup verification successful!",
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+        gravity: ToastGravity.CENTER,
+        toastLength: Toast.LENGTH_LONG,
+      );
+    } else {
+      // Increment attempt counter
+      await verificationDoc.reference.update({
+        'attempts': FieldValue.increment(1),
+      });
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect code. Please try again.')),
+      );
+    }
+  } catch (e) {
+    print('Error verifying food OTP: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error verifying code. Please try again.')),
+    );
+  }
+}
+
+// Add this method to handle ambulance OTP verification
+Future<void> _verifyAmbulanceOTP(String enteredOTP, String ambulanceId) async {
+  try {
+    final verificationDoc = await FirebaseFirestore.instance
+        .collection('ambulanceVerification')
+        .doc(ambulanceId)
+        .get();
+
+    if (!verificationDoc.exists) {
+      throw Exception('Verification data not found');
+    }
+
+    final data = verificationDoc.data()!;
+    final correctOTP = data['otp'] as String;
+
+    if (enteredOTP == correctOTP) {
+      // Get ambulance and driver details
+      final ambulanceSnapshot = await FirebaseFirestore.instance
+          .collection('adminAmbulanceDetails')
+          .doc(ambulanceId)
+          .get();
+
+      final ambulanceData = ambulanceSnapshot.data()!;
+      final driverId = ambulanceData['driverDetails']['userId'];
+      final requesterId = ambulanceData['requesterDetails']['userId'];
+      final driverName = ambulanceData['driverDetails']['name'];
+      final requesterName = ambulanceData['requesterDetails']['name'];
+      final driverLocation = ambulanceData['driverDetails']['address'];
+
+      // Get decoded address
+      final decodedAddress = await _getDecodedAddress(driverLocation);
+
+      // Delete existing chats between driver and requester
+      final chatQuery = await FirebaseFirestore.instance
+          .collection('chats')
+          .where('participants', arrayContainsAny: [driverId, requesterId])
+          .get();
+
+       // Use batch write for efficient deletion
+      final batch = FirebaseFirestore.instance.batch();
+      
+      // Delete chat documents
+      for (var chatDoc in chatQuery.docs) {
+        // Get messages subcollection
+        final messagesQuery = await chatDoc.reference
+            .collection('messages')
+            .get();   
+
+        // Delete all messages
+        for (var messageDoc in messagesQuery.docs) {
+          batch.delete(messageDoc.reference);
+        }
+        
+        // Delete chat document
+        batch.delete(chatDoc.reference);
+      }
+
+      // Delete old notifications
+      final notificationsQuery = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', whereIn: [driverId, requesterId])
+          .where('type', whereIn: ['ambulance_approved', 'ambulance_approved_verify'])
+          .get();
+
+      for (var notifDoc in notificationsQuery.docs) {
+        batch.delete(notifDoc.reference);
+      }
+
+      // Commit all deletions
+      await batch.commit();
+
+      // Update verification status
+      await verificationDoc.reference.update({
+        'verified': true,
+        'verificationTime': FieldValue.serverTimestamp(),
+      });
+
+      // Remove existing notifications
+      await _removeExistingNotifications(
+        ambulanceData['requesterDetails']['userId'],
+        ambulanceData['driverDetails']['userId']
+      );
+
+      // Send new notifications to both parties
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'userId': ambulanceData['requesterDetails']['userId'],
+        'title': 'Ambulance Service Started',
+        'message': 'Driver $driverName has verified your request and is on the way.',
+        'ambulanceId': ambulanceData['ambulanceDetails']['driverId'],
+        'driverId': ambulanceData['driverDetails']['userId'],
+        'driverName': driverName,
+        'type': 'ambulance_service_started',
+        'timestamp': FieldValue.serverTimestamp(),
+        'coordinates': ambulanceData['requesterDetails']['coordinates'],
+        'targetCoordinates': ambulanceData['driverDetails']['address'],
+        
+      });
+
+      // Notification for driver
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'userId': ambulanceData['driverDetails']['userId'],
+        'title': 'Service Verified',
+        'message': 'You have verified $requesterName. Please proceed with the ambulance service.',
+        'type': 'ambulance_service_confirmed',
+        'ambulanceId': ambulanceData['ambulanceDetails']['driverId'],
+        'driverId': ambulanceData['driverDetails']['userId'],
+        'driverName': driverName,
+        'timestamp': FieldValue.serverTimestamp(),
+        'coordinates': ambulanceData['requesterDetails']['coordinates'],
+        'targetCoordinates': ambulanceData['driverDetails']['address'],
+      });
+
+      // Show success toast
+      Fluttertoast.showToast(
+        msg: "Verification successful!",
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+        gravity: ToastGravity.CENTER,
+        toastLength: Toast.LENGTH_LONG,
+      );
+    } else {
+      // Increment attempt counter
+      await verificationDoc.reference.update({
+        'attempts': FieldValue.increment(1),
+      });
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect code. Please try again.')),
+      );
+    }
+  } catch (e) {
+    print('Error verifying ambulance OTP: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error verifying code. Please try again.')),
+    );
+  }
+}
+
+Future<void> _sendUpdatedFoodNotifications(
+  Map<String, dynamic> foodData,
+  String volunteerName,
+  String requesterName,
+  String foodName,
+  String decodedAddress
+) async {
+  // Send notification to requester
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': foodData['requesterDetails']['userId'],
+    'title': 'Food Pickup Volunteer Assigned',
+    'message': 'Your food pickup request for $foodName has been verified. $volunteerName will deliver your food.',
+    'type': 'volunteer_assigned',
+    'volunteerId': foodData['volunteerDetails']['userId'],
+    'requesterId': foodData['requesterDetails']['userId'],
+    'timestamp': FieldValue.serverTimestamp(),
+    'volunteerName': volunteerName,
+    'requesterName': requesterName,
+  });
+
+  // Send notification to volunteer
+  await FirebaseFirestore.instance.collection('notifications').add({
+    'userId': foodData['volunteerDetails']['userId'],
+    'title': 'Food Pickup Confirmed',
+    'message': 'You have picked up food for $requesterName. Please deliver $foodName to $decodedAddress',
+    'type': 'volunteer_food_pickup_confirmed',
+    'coordinates': foodData['requesterDetails']['coordinates'],
+    'targetCoordinates': foodData['donorDetails']['coordinates'],
+    'foodId': foodData['foodDetails']['foodId'],
+    'volunteerId': foodData['volunteerDetails']['userId'],
+    'requesterId': foodData['requesterDetails']['userId'],
+    'foodName': foodName,
+    'foodPhotos': foodData['foodDetails']['images'],
+    'timestamp': FieldValue.serverTimestamp(),
+    'volunteerName': volunteerName,
+    'requesterName': requesterName,
+    'donorId': foodData['donorDetails']['userId'],
+  });
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -991,12 +2227,12 @@ Widget _buildReviewDialog(BuildContext context, String volunteerId) {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 80,
-        backgroundColor: themeProvider.isDarkMode ? Colors.black : Colors.white,
+        backgroundColor: themeProvider.isDarkMode ? Colors.black : const Color.fromARGB(255, 159, 208, 244),
         title: Center(
           child: Text(
             languageProvider.translations['notifications'] ?? "Notifications",
             style: TextStyle(
-              color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+              color: themeProvider.isDarkMode ? const Color.fromARGB(255, 255, 255, 255) : const Color.fromARGB(255, 255, 255, 255),
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -1005,7 +2241,7 @@ Widget _buildReviewDialog(BuildContext context, String volunteerId) {
       ),
       backgroundColor: themeProvider.isDarkMode 
           ? Colors.grey.shade800 
-          : const Color.fromARGB(255, 170, 245, 245),
+          : const Color.fromARGB(255, 209, 226, 248),
       body: StreamBuilder<QuerySnapshot>(
         stream: notificationsStream,
         builder: (context, snapshot) {

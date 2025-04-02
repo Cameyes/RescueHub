@@ -245,7 +245,9 @@ Future deleteReview(String shelterId, String reviewId) async {
   
   // Apply location filter if provided
   if (location != null && location.isNotEmpty) {
-    query = query.where("Location", isEqualTo: location);
+    query = query.where("Location", isEqualTo: location)
+                .where('status',isEqualTo:'not booked');
+
   }
   
    if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -631,6 +633,7 @@ Future deletevolunteerReview(String volunteerId, String reviewId) async {
   return FirebaseFirestore.instance
       .collection("ambulance")
       .where("Location", isEqualTo: location)
+      //.where("status",isEqualTo: "active")
       //.orderBy('distance', descending: false) // Sort by distance
       .snapshots();
 }
